@@ -1,67 +1,69 @@
-<html>
-	<head>
-		<title>asxpi</title>
-		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
-		<link rel='stylesheet' href='//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack-subset.css'>
-		<link rel="icon" type="image/png" href="hedgehog.png" sizes="16x16" />
-		<style>
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>asxpi</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+        <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack-subset.css'>
+        <link rel="icon" type="image/png" href="hedgehog.png" sizes="32x32" />
+        <style>
 			body {
-				background-color: #121212;
-				color: #FAFAFA;
-				font-family: 'Open Sans';
+					background-color: #121212;
+					color: #AAAAAA;
+					font-family: 'Open Sans';
 			}
 			pre {
-				position: relative;
-				background: #222222;
-				padding: 10px;
-				font-size: 15px;
-				font-family: 'Hack';
-				word-wrap: break-word;
-				white-space: pre-wrap;
-				border: 1px solid #020202;
-				max-width: 40%;
-				left:30%;
+					position: relative;
+					background: #222222;
+					padding: 10px;
+					font-size: 15px;
+					font-family: 'Hack';
+					word-wrap: break-word;
+					white-space: pre-wrap;
+					border: 1px solid #020202;
+					max-width: 40%;
+					left:30%;
 			}
 			.copy-button {
- 				position: absolute;
-				top: 5px;
-				right: 10px;
-				cursor: pointer;
-				color: #424242;
-				background: #111111;
-				border-radius: 0.5em;
-				padding: 2px 7px;
+					position: absolute;
+					top: 5px;
+					right: 10px;
+					cursor: pointer;
+					color: #424242;
+					background: #111111;
+					border-radius: 0.5em;
+					padding: 2px 7px;
 			}
 			.copy-button:hover {
-				color: #000;
+					color: #000;
 			}
 			.header {
-				text-align: center;
+					text-align: center;
 			}
 			.footer {
-				text-align: center;
-				position: fixed;
-				left: 0;
-				bottom: 0;
-				width: 100%;
+					text-align: center;
+					position: fixed;
+					left: 0;
+					bottom: 0;
+					width: 100%;
 
 			}
 		</style>
-	</head>
-	<body>
-		<div class="header">
-			<h1>Hello! And what are you looking for here? Ahh?!<br></h1>
-		</div>
+    </head>
+        <body>
+			<div class="header">
+				<h1>Hello! And what are you looking for here? Ahh?!<br></h1>
+			</div>
 
-		<pre id="myPGP">gpg --recv-keys 85F7AFEDAB7D97BE667F99F24F8851660FA4121B</pre>
-		<br>
-		<pre id="myPGP">ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC//ljrf65xbFyGmy/xeZs5GZvkmufCioqIGYguR3c8c/Ff9HiA4oMRT53Qs16KMuXRg62NusVQvJsvyPRSARpBFsoPiZ/YNBteWlqT1aVqeZwPOfUfFycQ2T8a9qtDnZ0WhamSlJMSAHQPkxXNA6S2ZE9y+dMzMc5qPeRwdsQmuvkxjual/35t9qTgCAG7LvKCKPJkLL5YpwLoqWYWTqSJ6RxNLTYNgIhJBZirzB5rNiFDDupnOuTKSpyRJNxyBSapNge5rCnGQYIeoJ4fi+FTi5wzjlC3hC0BN4Oc/zrm1nS9lyPXQS8KV5/vcQlPrvYZmv0LneeQ/gH/jJsSlwRp2qIatoASSfTlz1y1bOOYtPFojJPikXiXeZMCdlam1II6B94z1ybOIO8TqyKDVs4eHRFfYO72zv0sGsTr7t0C7+N9Wrpmhk38zdlLagZ6HO7KSyoAHm+fQc58fXmOhz4vfYrbmYRPgO0VO03fEb7lSFPPLaSseT0tayli05irJpc= asxpi@meow</pre>
 
-		<script src="copyPGP.js"></script>
-		<script src="copySSH.js"></script>
+			<script src="copyPGP.js"></script>
+			<script src="copySSH.js"></script>
+			<pre id="myPGP">gpg --recv-keys 85F7AFEDAB7D97BE667F99F24F8851660FA4121B</pre>
+			<br>
+			<pre id="mySSH">ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC//ljrf65xbFyGmy/xeZs5GZvkmufCioqIGYguR3c8c/Ff9HiA4oMRT53Qs16KMuXRg62NusVQvJsvyPRSARpBFsoPiZ/YNBteWlqT1aVqeZwPOfUfFycQ2T8a9qtDnZ0WhamSlJMSAHQPkxXNA6S2ZE9y+dMzMc5qPeRwdsQmuvkxjual/35t9qTgCAG7LvKCKPJkLL5YpwLoqWYWTqSJ6RxNLTYNgIhJBZirzB5rNiFDDupnOuTKSpyRJNxyBSapNge5rCnGQYIeoJ4fi+FTi5wzjlC3hC0BN4Oc/zrm1nS9lyPXQS8KV5/vcQlPrvYZmv0LneeQ/gH/jJsSlwRp2qIatoASSfTlz1y1bOOYtPFojJPikXiXeZMCdlam1II6B94z1ybOIO8TqyKDVs4eHRFfYO72zv0sGsTr7t0C7+N9Wrpmhk38zdlLagZ6HO7KSyoAHm+fQc58fXmOhz4vfYrbmYRPgO0VO03fEb7lSFPPLaSseT0tayli05irJpc= asxpi@meow</pre>
 
-		<div class="footer">
-			<h1>me@asxp.io or t.me/asxpi</h1>
-		</div>
-	</body>
+			<div class="footer">
+					<h1>me@asxp.io or t.me/asxpi</h1>
+			</div>
+        </body>
 </html>
