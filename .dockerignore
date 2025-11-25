@@ -1,0 +1,5 @@
+.git
+.forgejo
+.DS_Store
+README.md
+.dockerignore

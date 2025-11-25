@@ -1,0 +1,79 @@
+name: Build and Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: arch-latest
+    container:
+      image: gcr.io/kaniko-project/executor:debug
+    outputs:
+      image_tag: ${{ steps.build_image.outputs.image_tag }}
+    steps:
+      - name: Build and push Docker Image using Kaniko
+        id: build_image
+        run: |
+          # Tags
+          SHORT_SHA=${GITHUB_SHA::8}
+          IMAGE_BASE=${{ secrets.FORGEJO_REGISTRY }}/${{ secrets.FORGEJO_USER }}/asxpio
+          IMAGE_TAG=${IMAGE_BASE}:${SHORT_SHA}
+          IMAGE_LATEST=${IMAGE_BASE}:latest
+
+          # Auth Conf
+          mkdir -p /kaniko/.docker
+          echo "{\"auths\":{\"${{ secrets.FORGEJO_REGISTRY }}\":{\"auth\":\"$(echo -n ${{ secrets.FORGEJO_USER }}:${{ secrets.FORGEJO_TOKEN }} | base64)\"}}}" > /kaniko/.docker/config.json
+
+          # Build & push
+          /kaniko/executor \
+            --context=git://${{ secrets.FORGEJO_REGISTRY }}/${{ github.repository }}.git \
+            --git=branch=${{ github.ref_name }} \
+            --destination=$IMAGE_TAG \
+            --destination=$IMAGE_LATEST
+
+          # Output the specific tag for deployment
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+  deploy:
+    runs-on: arch-latest
+    needs: build
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm nodejs openssh rsync
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy docker-compose.yml
+        uses: easingthemes/ssh-deploy@v5.1.0
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_IP }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          SOURCE: "docker-compose.yml"
+          TARGET: "/opt/asxpio/"
+
+      - name: Deploy and update container
+        uses: appleboy/ssh-action@v1.2.3
+        env:
+          NEW_IMAGE: ${{ needs.build.outputs.image_tag }}
+        with:
+          host: ${{ secrets.DEPLOY_IP }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: NEW_IMAGE
+          script: |
+            cd /opt/asxpio
+
+            sed -i "s|image:.*|image: $NEW_IMAGE|" docker-compose.yml
+
+            docker pull $NEW_IMAGE
+            docker compose up -d
+
+            sleep 5
+            docker ps | grep asxpio || exit 1
+
+            echo "Deployment successful!"
