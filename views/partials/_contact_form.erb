@@ -1,0 +1,42 @@
+<% errors = (defined?(@form_errors) && @form_errors) || {} %>
+<% values = (defined?(@form_values) && @form_values) || {} %>
+
+<form class="contact-form" method="post" action="/contact" autocomplete="on">
+    <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+
+    <div class="hp" aria-hidden="true">
+        <label>Website<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    <% if errors[:base] %>
+        <div class="form-error form-error-base"><%= errors[:base] %></div>
+    <% end %>
+
+    <div class="field">
+        <label for="cf-name">Name</label>
+        <input id="cf-name" type="text" name="name" maxlength="100" required value="<%= values[:name] %>" />
+        <% if errors[:name] %><span class="form-error"><%= errors[:name] %></span><% end %>
+    </div>
+
+    <div class="field">
+        <label for="cf-email">Email</label>
+        <input id="cf-email" type="email" name="email" maxlength="200" required value="<%= values[:email] %>" />
+        <% if errors[:email] %><span class="form-error"><%= errors[:email] %></span><% end %>
+    </div>
+
+    <div class="field">
+        <label for="cf-subject">Subject <span class="optional">(optional)</span></label>
+        <input id="cf-subject" type="text" name="subject" maxlength="200" value="<%= values[:subject] %>" />
+        <% if errors[:subject] %><span class="form-error"><%= errors[:subject] %></span><% end %>
+    </div>
+
+    <div class="field">
+        <label for="cf-message">Message</label>
+        <textarea id="cf-message" name="message" rows="6" maxlength="5000" required><%= values[:message] %></textarea>
+        <% if errors[:message] %><span class="form-error"><%= errors[:message] %></span><% end %>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>

@@ -1,15 +1,26 @@
-FROM nginx:alpine
+FROM ruby:3.4-slim-bookworm
 
-# Copy website files to nginx html directory
-COPY index.html /usr/share/nginx/html/
-COPY id_ed25519.pub /usr/share/nginx/html/
-COPY copyPGP.js /usr/share/nginx/html/
-COPY copySSH.js /usr/share/nginx/html/
-COPY hedgehog.png /usr/share/nginx/html/
-COPY pgp.pub /usr/share/nginx/html/
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
 
-# Expose port 80
-EXPOSE 80
+RUN groupadd -g 11000 asxpio \
+ && useradd -d /app -u 21000 -g 11000 -m -s /bin/bash asxpio
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+WORKDIR /app
+USER asxpio
+
+ENV GEM_HOME=/app/bundle
+ENV PATH="${GEM_HOME}/bin:${PATH}"
+
+COPY --chown=asxpio Gemfile Gemfile.lock* ./
+RUN bundle install --without development
+
+COPY --chown=asxpio . .
+
+ENV PUMA_PORT=3000
+ENV PUMA_THREADS="4:16"
+ENV RACK_ENV=production
+EXPOSE 3000
+
+CMD ["sh", "-c", "exec puma -b tcp://0.0.0.0:${PUMA_PORT} -t ${PUMA_THREADS} --preload"]

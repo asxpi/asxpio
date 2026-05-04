@@ -56,6 +56,32 @@ jobs:
           SOURCE: "docker-compose.yml"
           TARGET: "/opt/asxpio/"
 
+      - name: Deploy .env from secrets
+        uses: appleboy/ssh-action@v1.2.3
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        with:
+          host: ${{ secrets.DEPLOY_IP }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: SESSION_SECRET,SMTP_PASSWORD
+          script_stop: true
+          script: |
+            umask 077
+            mkdir -p /opt/asxpio
+            cat > /opt/asxpio/.env <<EOF
+            RACK_ENV=production
+            SESSION_SECRET=${SESSION_SECRET}
+            SMTP_ADDR=smtp.fastmail.com
+            SMTP_PORT=587
+            SMTP_USER=me@asxp.io
+            SMTP_PASSWORD=${SMTP_PASSWORD}
+            MAIL_FROM=IE Sergei Poljanski Contact Form <me@asxp.io>
+            MAIL_TO=ie@asxp.io
+            EOF
+            chmod 600 /opt/asxpio/.env
+
       - name: Deploy and update container
         uses: appleboy/ssh-action@v1.2.3
         env:

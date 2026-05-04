@@ -3,3 +3,12 @@
 .DS_Store
 README.md
 .dockerignore
+.env
+.gems
+.bundle
+vendor/bundle
+*.log
+tmp
+flake.nix
+flake.lock
+CLAUDE.md

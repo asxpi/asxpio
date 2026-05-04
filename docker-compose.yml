@@ -1,10 +1,12 @@
 services:
   asxpio:
     # Image will be dynamically updated during deployment
-    # Format: registry.example.com/user/czsk:sha_tag
-    image: nginx:alpine
+    # Format: registry.example.com/user/asxpio:sha_tag
+    build: .
+    image: asxpio:latest
     container_name: asxpio
     restart: unless-stopped
+    env_file: .env
     networks:
       - traefik
     labels:
@@ -13,7 +15,7 @@ services:
       - "traefik.http.routers.asxpio.entrypoints=websecure"
       - "traefik.http.routers.asxpio.tls=true"
       - "traefik.http.routers.asxpio.tls.certresolver=letsencrypt"
-      - "traefik.http.services.asxpio.loadbalancer.server.port=80"
+      - "traefik.http.services.asxpio.loadbalancer.server.port=3000"
 
 networks:
   traefik:
