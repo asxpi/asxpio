@@ -121,6 +121,26 @@ a:hover {
     padding: 24px 20px;
     border-top: 1px solid #1E1E1E;
 }
+.footer-line {
+    margin-bottom: 12px;
+}
+.footer-links {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    align-items: center;
+}
+.footer-links a {
+    color: #555555;
+    border-bottom: none;
+    line-height: 0;
+}
+.footer-links a:hover {
+    color: #FFFFFF;
+}
+.footer-links svg {
+    display: block;
+}
 
 /* Contact form */
 .contact-form {

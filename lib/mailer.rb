@@ -43,7 +43,7 @@ module Mailer
   def confirm_visitor(name:, email:, subject:, message:)
     from = ENV.fetch('MAIL_FROM')
     to   = ENV.fetch('MAIL_TO')
-    subj = subject.to_s.strip.empty? ? 'your message' : subject.to_s.strip
+    subj = subject.to_s.strip.empty? ? '(blank)' : subject.to_s.strip
     body = <<~BODY
       Hi #{name},
 
