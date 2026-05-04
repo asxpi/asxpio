@@ -23,10 +23,16 @@ main {
     display: block;
 }
 .header h1 {
-    font-size: 1.4rem;
-    font-weight: 400;
-    color: #DDDDDD;
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #EEEEEE;
     margin: 0;
+    letter-spacing: -0.01em;
+}
+.header .tagline {
+    font-size: 1rem;
+    color: #999999;
+    margin: 8px 0 0;
 }
 .header .ka {
     display: block;
@@ -229,6 +235,32 @@ a:hover {
     margin-top: 16px;
     padding-top: 16px;
     border-top: 1px dashed #2A2A2A;
+}
+
+/* Demoted Legal section — visible but quiet */
+.section.legal {
+    margin-top: 56px;
+    color: #888888;
+    font-size: 0.9rem;
+}
+.section.legal h2 {
+    font-size: 0.85rem;
+    color: #888888;
+    border-bottom-color: #1E1E1E;
+    text-transform: none;
+    letter-spacing: 0.04em;
+}
+.section.legal .legal-intro {
+    margin: 0 0 14px;
+    color: #777777;
+}
+.section.legal dl.kv dt {
+    color: #666666;
+    font-size: 0.85rem;
+}
+.section.legal dl.kv dd {
+    color: #999999;
+    font-size: 0.9rem;
 }
 
 @media (max-width: 560px) {

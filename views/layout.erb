@@ -1,5 +1,5 @@
-<% page_title = (defined?(@page_title) && @page_title) || 'IE Sergei Poljanski — DevOps & Infrastructure Engineering, Tbilisi' %>
-<% page_desc  = (defined?(@page_desc) && @page_desc) || 'DevOps and infrastructure engineering by IE Sergei Poljanski — Estonian-born EU citizen, based in Tbilisi, Georgia. Docker, Kubernetes, Terraform, Ansible, CI/CD, monitoring. Worldwide clients.' %>
+<% page_title = (defined?(@page_title) && @page_title) || 'Sergei Poljanski — DevOps & Infrastructure Engineering' %>
+<% page_desc  = (defined?(@page_desc) && @page_desc) || 'Sergei Poljanski — Estonian-born EU citizen, DevOps & infrastructure engineer based in Tbilisi, Georgia. Docker, Kubernetes, Terraform, Ansible, CI/CD, monitoring. Available for worldwide clients. Invoiced through IE Sergei Poljanski.' %>
 <% noindex    = defined?(@noindex) && @noindex %>
 <!doctype html>
 <html lang="en">
@@ -38,11 +38,42 @@
         <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack-subset.css'>
         <link rel="stylesheet" href="/style.css" />
 
-        <!-- Structured data: Organization + Person -->
+        <!-- Structured data: Person (primary) + Organization (employer) -->
         <script type="application/ld+json">
         {
             "@context": "https://schema.org",
             "@graph": [
+                {
+                    "@type": "Person",
+                    "@id": "https://asxp.io/#person",
+                    "name": "Sergei Poljanski",
+                    "alternateName": "asxpi",
+                    "url": "https://asxp.io",
+                    "mainEntityOfPage": "https://asxp.io",
+                    "email": "ie@asxp.io",
+                    "telephone": "+995595026471",
+                    "nationality": { "@type": "Country", "name": "Estonia" },
+                    "homeLocation": {
+                        "@type": "Place",
+                        "address": {
+                            "@type": "PostalAddress",
+                            "addressLocality": "Tbilisi",
+                            "addressCountry": "GE"
+                        }
+                    },
+                    "jobTitle": "DevOps & Infrastructure Engineer",
+                    "worksFor": { "@id": "https://asxp.io/#organization" },
+                    "knowsAbout": [
+                        "DevOps", "Site Reliability Engineering", "Kubernetes", "Docker",
+                        "Terraform", "Ansible", "CI/CD", "Linux", "NixOS",
+                        "Prometheus", "Grafana", "Loki", "Infrastructure as Code"
+                    ],
+                    "sameAs": [
+                        "https://git.czsk.it/asxpi/asxpio",
+                        "https://github.com/asxpi",
+                        "https://www.linkedin.com/in/asxpi"
+                    ]
+                },
                 {
                     "@type": "Organization",
                     "@id": "https://asxp.io/#organization",
@@ -61,29 +92,7 @@
                     },
                     "founder": { "@id": "https://asxp.io/#person" },
                     "sameAs": [
-                        "https://git.czsk.it/asxpi/asxpio",
-                        "https://github.com/asxpi",
-                        "https://www.linkedin.com/in/asxpi"
-                    ]
-                },
-                {
-                    "@type": "Person",
-                    "@id": "https://asxp.io/#person",
-                    "name": "Sergei Poljanski",
-                    "url": "https://asxp.io",
-                    "email": "ie@asxp.io",
-                    "nationality": { "@type": "Country", "name": "Estonia" },
-                    "worksFor": { "@id": "https://asxp.io/#organization" },
-                    "jobTitle": "DevOps & Infrastructure Engineer",
-                    "knowsAbout": [
-                        "DevOps", "Site Reliability Engineering", "Kubernetes", "Docker",
-                        "Terraform", "Ansible", "CI/CD", "Linux", "NixOS",
-                        "Prometheus", "Grafana", "Loki", "Infrastructure as Code"
-                    ],
-                    "sameAs": [
-                        "https://git.czsk.it/asxpi/asxpio",
-                        "https://github.com/asxpi",
-                        "https://www.linkedin.com/in/asxpi"
+                        "https://www.linkedin.com/company/ie-sergei-poljanski"
                     ]
                 }
             ]
