@@ -59,6 +59,17 @@ The patterns mirror `~/Code/projects/narayana/www`. Use that repo as a reference
 
 `public/id_ed25519.pub` is served from the site. The comment field (currently `ie+2026@asxp.io`) is part of the key file itself; editing the website without regenerating the key file means the website and the file disagree. Keep them in sync, or regenerate the key.
 
+## Logo placeholder
+
+The header monogram in `views/index.erb` (inline SVG, "SP" in Hack monospace on a 56×56 dark-grey square) is a **placeholder** awaiting a real logo from a designer friend. When the real logo arrives, swap in this order:
+
+1. **Drop the asset** into `public/` (e.g. `public/logo.svg` — prefer SVG; PNG fallback if needed).
+2. **Header in `views/index.erb`** — replace the entire `<div class="monogram">…</div>` block with `<img src="/logo.svg" alt="IE Sergei Poljanski" class="monogram" />`. The `.monogram` CSS class in `public/style.css` (centered, `margin-bottom: 14px`) handles layout — adjust `width`/`height` on the `<img>` if the new logo's proportions differ.
+3. **Favicons** — replace or supplement `public/hedgehog.png`. The `<link rel="icon">` and `<link rel="apple-touch-icon">` in `views/layout.erb` point at `/hedgehog.png`; update both. Ideally provide 32×32 (favicon) and 180×180 (apple-touch).
+4. **Open Graph image** — currently absent (Twitter Card type is `summary`, no thumbnail). Add `public/og-card.png` (1200×630, logo + entity name on dark `#121212`), then in `views/layout.erb` add `<meta property="og:image" content="https://asxp.io/og-card.png" />` and change `<meta name="twitter:card" content="summary" />` to `summary_large_image`.
+
+The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, the hedgehog can stay as-is for old-time's sake or be retired. Ask before retiring it.
+
 ## Common tasks
 
 - **Generate a new SESSION_SECRET:** `openssl rand -hex 64` (then update Forgejo secret).

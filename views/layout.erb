@@ -1,13 +1,94 @@
+<% page_title = (defined?(@page_title) && @page_title) || 'IE Sergei Poljanski — DevOps & Infrastructure Engineering, Tbilisi' %>
+<% page_desc  = (defined?(@page_desc) && @page_desc) || 'DevOps and infrastructure engineering by IE Sergei Poljanski — Estonian-born EU citizen, based in Tbilisi, Georgia. Docker, Kubernetes, Terraform, Ansible, CI/CD, monitoring. Worldwide clients.' %>
+<% noindex    = defined?(@noindex) && @noindex %>
 <!doctype html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>IE Sergei Poljanski</title>
+
+        <title><%= page_title %></title>
+        <meta name="description" content="<%= page_desc %>" />
+        <meta name="author" content="Sergei Poljanski" />
+        <% if noindex %>
+        <meta name="robots" content="noindex, nofollow" />
+        <% else %>
+        <meta name="robots" content="index, follow" />
+        <% end %>
+        <link rel="canonical" href="https://asxp.io<%= request.path %>" />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="IE Sergei Poljanski" />
+        <meta property="og:title" content="<%= page_title %>" />
+        <meta property="og:description" content="<%= page_desc %>" />
+        <meta property="og:url" content="https://asxp.io<%= request.path %>" />
+        <meta property="og:locale" content="en_US" />
+
+        <!-- Twitter Card -->
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="<%= page_title %>" />
+        <meta name="twitter:description" content="<%= page_desc %>" />
+
+        <!-- Favicons -->
+        <link rel="icon" type="image/png" href="/hedgehog.png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/hedgehog.png" />
+
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
         <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack-subset.css'>
-        <link rel="icon" type="image/png" href="/hedgehog.png" sizes="32x32" />
         <link rel="stylesheet" href="/style.css" />
+
+        <!-- Structured data: Organization + Person -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Organization",
+                    "@id": "https://asxp.io/#organization",
+                    "name": "IE Sergei Poljanski",
+                    "alternateName": ["SERGEI POLJANSKI", "ინდ. მეწარმე სერგეი პოლჯანსკი"],
+                    "url": "https://asxp.io",
+                    "email": "ie@asxp.io",
+                    "telephone": "+995595026471",
+                    "taxID": "304813343",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "streetAddress": "Ilia and Nino Nakashidze St, N 1, Building N3, Apt N3",
+                        "addressLocality": "Tbilisi",
+                        "addressRegion": "Krtsanisi",
+                        "addressCountry": "GE"
+                    },
+                    "founder": { "@id": "https://asxp.io/#person" },
+                    "sameAs": [
+                        "https://git.czsk.it/asxpi/asxpio",
+                        "https://github.com/asxpi",
+                        "https://www.linkedin.com/in/asxpi"
+                    ]
+                },
+                {
+                    "@type": "Person",
+                    "@id": "https://asxp.io/#person",
+                    "name": "Sergei Poljanski",
+                    "url": "https://asxp.io",
+                    "email": "ie@asxp.io",
+                    "nationality": { "@type": "Country", "name": "Estonia" },
+                    "worksFor": { "@id": "https://asxp.io/#organization" },
+                    "jobTitle": "DevOps & Infrastructure Engineer",
+                    "knowsAbout": [
+                        "DevOps", "Site Reliability Engineering", "Kubernetes", "Docker",
+                        "Terraform", "Ansible", "CI/CD", "Linux", "NixOS",
+                        "Prometheus", "Grafana", "Loki", "Infrastructure as Code"
+                    ],
+                    "sameAs": [
+                        "https://git.czsk.it/asxpi/asxpio",
+                        "https://github.com/asxpi",
+                        "https://www.linkedin.com/in/asxpi"
+                    ]
+                }
+            ]
+        }
+        </script>
     </head>
     <body>
         <main>

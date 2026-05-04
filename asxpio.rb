@@ -110,6 +110,9 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/thanks' do
+    @page_title = 'Thanks — IE Sergei Poljanski'
+    @page_desc  = 'Your message has been received. A confirmation copy has been sent to your inbox.'
+    @noindex    = true
     erb :thanks
   end
 
