@@ -263,6 +263,163 @@ a:hover {
     font-size: 0.9rem;
 }
 
+/* Invoices */
+.invoice-list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+.invoice-list th,
+.invoice-list td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #1E1E1E;
+}
+.invoice-list th {
+    color: #777777;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.invoice-list td.num,
+.invoice-list th.num {
+    text-align: right;
+}
+.invoice-list td.actions {
+    text-align: right;
+}
+.badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+}
+.badge-pending {
+    color: #C9A86A;
+    border-color: #4A3E1F;
+    background: #2A2414;
+}
+.badge-paid {
+    color: #7AB97A;
+    border-color: #234A23;
+    background: #142A14;
+}
+.invoice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 16px;
+}
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px;
+}
+.items-table th,
+.items-table td {
+    padding: 4px;
+    border: none;
+    vertical-align: top;
+}
+.items-table th {
+    color: #777777;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+}
+.items-table th.num {
+    text-align: right;
+}
+.items-table input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1A1A1A;
+    color: #DDDDDD;
+    border: 1px solid #2A2A2A;
+    border-radius: 3px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+.items-table td.num input {
+    text-align: right;
+    font-family: 'Hack', monospace;
+}
+.items-table td.actions {
+    width: 32px;
+    text-align: center;
+}
+.items-table .remove-row {
+    background: transparent;
+    border: 1px solid #2A2A2A;
+    color: #777777;
+    border-radius: 3px;
+    padding: 4px 8px;
+    cursor: pointer;
+    line-height: 1;
+}
+.items-table .remove-row:hover {
+    color: #C97070;
+    border-color: #4A1F1F;
+}
+.link-button {
+    background: transparent;
+    border: 1px dashed #2A2A2A;
+    color: #888888;
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 18px;
+}
+.link-button:hover {
+    color: #DDDDDD;
+    border-color: #555555;
+}
+.invoice-form select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1A1A1A;
+    color: #DDDDDD;
+    border: 1px solid #2A2A2A;
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+.invoice-form input[type="date"] {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1A1A1A;
+    color: #DDDDDD;
+    border: 1px solid #2A2A2A;
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-family: 'Hack', monospace;
+    font-size: 0.92rem;
+    color-scheme: dark;
+}
+.download-button {
+    display: inline-block;
+    background: #2A2A2A;
+    color: #DDDDDD;
+    border: 1px solid #3A3A3A;
+    border-radius: 3px;
+    padding: 12px 32px;
+    font-size: 1rem;
+    text-decoration: none;
+}
+.download-button:hover {
+    background: #333333;
+    border-color: #555555;
+    color: #FFFFFF;
+}
+
 @media (max-width: 560px) {
     ul.services {
         grid-template-columns: 1fr;
