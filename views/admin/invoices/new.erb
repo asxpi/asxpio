@@ -1,0 +1,88 @@
+<div class="header">
+    <h1>New invoice</h1>
+    <p class="tagline"><a href="/admin/invoices">← all invoices</a></p>
+</div>
+
+<% if @form_errors && !@form_errors.empty? %>
+    <div class="form-error-base">
+        <% @form_errors.each_value do |msg| %>
+            <div><%= msg %></div>
+        <% end %>
+    </div>
+<% end %>
+
+<section class="section">
+    <form class="contact-form invoice-form" method="post" action="/admin/invoices" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+
+        <h2>Client</h2>
+        <div class="field">
+            <label for="client_name">Name</label>
+            <input type="text" id="client_name" name="client_name" value="<%= @form_values[:client_name] %>" required maxlength="200" />
+        </div>
+        <div class="field">
+            <label for="client_email">Email</label>
+            <input type="email" id="client_email" name="client_email" value="<%= @form_values[:client_email] %>" required maxlength="200" />
+        </div>
+        <div class="field">
+            <label for="client_address">Address <span class="optional">(optional, free text)</span></label>
+            <textarea id="client_address" name="client_address" rows="3" maxlength="500"><%= @form_values[:client_address] %></textarea>
+        </div>
+
+        <h2>Terms</h2>
+        <div class="invoice-grid">
+            <div class="field">
+                <label for="issued_on">Issued</label>
+                <input type="date" id="issued_on" name="issued_on" value="<%= @form_values[:issued_on] || Date.today.strftime('%Y-%m-%d') %>" required />
+            </div>
+            <div class="field">
+                <label for="due_on">Due</label>
+                <input type="date" id="due_on" name="due_on" value="<%= @form_values[:due_on] || (Date.today + 14).strftime('%Y-%m-%d') %>" required />
+            </div>
+            <div class="field">
+                <label for="currency">Currency</label>
+                <select id="currency" name="currency">
+                    <% Invoice::CURRENCIES.each do |c| %>
+                        <option value="<%= c %>" <%= 'selected' if (@form_values[:currency] || 'EUR') == c %>><%= c %></option>
+                    <% end %>
+                </select>
+            </div>
+            <div class="field">
+                <label for="gel_rate">GEL rate</label>
+                <input type="text" id="gel_rate" name="gel_rate" value="<%= @form_values[:gel_rate] %>" placeholder="2.9500" inputmode="decimal" required />
+            </div>
+        </div>
+
+        <h2>Line items</h2>
+        <table class="items-table" id="items-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th class="num">Qty</th>
+                    <th class="num">Unit price</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <% (@form_values[:items] || [{'description' => '', 'qty' => '', 'unit_price' => ''}]).each_with_index do |item, i| %>
+                    <tr class="item-row">
+                        <td><input type="text" name="items[<%= i %>][description]" value="<%= item['description'] %>" placeholder="DevOps engineering — May 2026" maxlength="300" /></td>
+                        <td class="num"><input type="text" name="items[<%= i %>][qty]" value="<%= item['qty'] %>" placeholder="1" inputmode="decimal" /></td>
+                        <td class="num"><input type="text" name="items[<%= i %>][unit_price]" value="<%= item['unit_price'] %>" placeholder="0.00" inputmode="decimal" /></td>
+                        <td class="actions"><button type="button" class="remove-row" aria-label="Remove">×</button></td>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+        <button type="button" id="add-row" class="link-button">+ add line</button>
+
+        <div class="field">
+            <label for="notes">Notes <span class="optional">(optional)</span></label>
+            <textarea id="notes" name="notes" rows="3" maxlength="1000"><%= @form_values[:notes] %></textarea>
+        </div>
+
+        <button type="submit">Create invoice</button>
+    </form>
+</section>
+
+<script src="/admin-invoice-form.js"></script>

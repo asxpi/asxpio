@@ -1,0 +1,41 @@
+<div class="header">
+    <h1>Invoices</h1>
+    <p class="tagline"><a href="/admin/invoices/new">+ New invoice</a></p>
+</div>
+
+<% if @invoices.empty? %>
+    <section class="section">
+        <p>No invoices yet. <a href="/admin/invoices/new">Create the first one</a>.</p>
+    </section>
+<% else %>
+    <section class="section">
+        <table class="invoice-list">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Client</th>
+                    <th>Issued</th>
+                    <th class="num">Total</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <% @invoices.each do |inv| %>
+                    <tr>
+                        <td class="mono"><%= inv.number %></td>
+                        <td><%= inv.client_name %></td>
+                        <td class="mono"><%= inv.issued_on.strftime('%Y-%m-%d') %></td>
+                        <td class="num mono"><%= inv.currency %> <%= '%.2f' % inv.total %></td>
+                        <td>
+                            <span class="badge badge-<%= inv.status %>"><%= inv.status %></span>
+                        </td>
+                        <td class="actions">
+                            <a href="/admin/invoices/<%= inv.uuid %>">view</a>
+                        </td>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+    </section>
+<% end %>

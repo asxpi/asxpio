@@ -1,0 +1,43 @@
+<div class="header">
+    <h1><%= @invoice.number %></h1>
+    <p class="tagline"><a href="/admin/invoices">← all invoices</a></p>
+</div>
+
+<section class="section">
+    <dl class="kv">
+        <dt>Client</dt><dd><%= @invoice.client_name %> &lt;<%= @invoice.client_email %>&gt;</dd>
+        <dt>Issued</dt><dd class="mono"><%= @invoice.issued_on.strftime('%Y-%m-%d') %></dd>
+        <dt>Due</dt><dd class="mono"><%= @invoice.due_on.strftime('%Y-%m-%d') %></dd>
+        <dt>Total</dt><dd class="mono"><%= @invoice.currency %> <%= '%.2f' % @invoice.total %><% unless @invoice.currency == 'GEL' %> · GEL <%= '%.2f' % @invoice.total_gel %><% end %></dd>
+        <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span></dd>
+        <% if @invoice.paid_at %>
+            <dt>Paid at</dt><dd class="mono"><%= @invoice.paid_at.utc.strftime('%Y-%m-%d %H:%M UTC') %></dd>
+        <% end %>
+    </dl>
+</section>
+
+<section class="section">
+    <h2>Actions</h2>
+    <p>
+        <a href="/i/<%= @invoice.uuid %>" target="_blank">Public landing page</a>
+        &nbsp;·&nbsp;
+        <a href="/i/<%= @invoice.uuid %>/pdf" target="_blank">Download PDF</a>
+    </p>
+    <p>
+        Share this URL with the client:<br />
+        <code class="mono">https://asxp.io/i/<%= @invoice.uuid %></code>
+    </p>
+    <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid" style="margin-top: 14px;">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit">
+            <% if @invoice.paid? %>Mark unpaid<% else %>Mark paid<% end %>
+        </button>
+    </form>
+</section>
+
+<% unless @invoice.notes.to_s.strip.empty? %>
+    <section class="section">
+        <h2>Notes</h2>
+        <p style="white-space: pre-wrap;"><%= @invoice.notes %></p>
+    </section>
+<% end %>

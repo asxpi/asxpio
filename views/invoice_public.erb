@@ -1,0 +1,24 @@
+<div class="header">
+    <h1>Invoice <%= @invoice.number %></h1>
+    <p class="tagline">from IE Sergei Poljanski</p>
+</div>
+
+<section class="section">
+    <dl class="kv">
+        <dt>Billed to</dt><dd><%= @invoice.client_name %></dd>
+        <dt>Issued</dt><dd class="mono"><%= @invoice.issued_on.strftime('%Y-%m-%d') %></dd>
+        <dt>Due</dt><dd class="mono"><%= @invoice.due_on.strftime('%Y-%m-%d') %></dd>
+        <dt>Total</dt><dd class="mono"><%= @invoice.currency %> <%= '%.2f' % @invoice.total %></dd>
+        <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span></dd>
+    </dl>
+</section>
+
+<section class="section">
+    <p style="text-align: center;">
+        <a href="/i/<%= @invoice.uuid %>/pdf" class="download-button">Download PDF</a>
+    </p>
+</section>
+
+<section class="section legal">
+    <p class="legal-intro">If anything looks wrong, reply to the invoice email or write to <a href="mailto:ie@asxp.io">ie@asxp.io</a>.</p>
+</section>
