@@ -49,8 +49,7 @@ class Invoice < Sequel::Model(:invoices)
       items = normalize_items(params.fetch(:items))
       subtotal = items.sum { |i| BigDecimal(i['qty'].to_s) * BigDecimal(i['unit_price'].to_s) }
 
-      Invoice.new(
-        uuid:           SecureRandom.uuid,
+      invoice = Invoice.new(
         number:         allocate_number,
         client_name:    params.fetch(:client_name).to_s.strip,
         client_email:   params.fetch(:client_email).to_s.strip,
@@ -65,6 +64,8 @@ class Invoice < Sequel::Model(:invoices)
         pdf_key:        '',
         created_at:     Time.now.utc
       )
+      invoice.uuid = SecureRandom.uuid
+      invoice
     end
 
     private
