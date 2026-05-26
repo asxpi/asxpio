@@ -18,6 +18,8 @@
           pkgs.openssl
           pkgs.zlib
           pkgs.libyaml
+          pkgs.postgresql.lib
+          pkgs.postgresql
         ];
 
         shellHook = ''
