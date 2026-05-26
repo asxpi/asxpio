@@ -1,0 +1,268 @@
+require 'prawn'
+require 'prawn/table'
+require 'bigdecimal'
+
+class InvoicePdf
+  FONTS_DIR = File.join($root, 'public', 'fonts')
+
+  ISSUER = {
+    name_latin:    'IE Sergei Poljanski',
+    name_alt:      'SERGEI POLJANSKI',
+    name_georgian: 'ინდ. მეწარმე სერგეი პოლჯანსკი',
+    tax_id:        '304813343',
+    reg_number:    'B26353511',
+    registered:    '2026-05-04',
+    address:       [
+      'Ilia and Nino Nakashidze St, N 1, Building N3, Apt N3',
+      'Krtsanisi, Tbilisi, Georgia'
+    ],
+    email:         'me@asxp.io',
+    phone:         '+995 595 026 471',
+    bank_name:     'Bank of Georgia',
+    iban:          'GE53BG0000000612343299',
+    swift:         'BAGAGE22'
+  }.freeze
+
+  COLOR_TEXT    = '111111'.freeze
+  COLOR_MUTED   = '6F6F6F'.freeze
+  COLOR_RULE    = 'DADADA'.freeze
+  COLOR_ACCENT  = '1A1A1A'.freeze
+
+  def self.render(invoice)
+    new(invoice).render
+  end
+
+  def initialize(invoice)
+    @invoice = invoice
+  end
+
+  def render
+    pdf = Prawn::Document.new(
+      page_size: 'A4',
+      margin:    [40, 50, 50, 50],
+      info:      {
+        Title:    "Invoice #{@invoice.number}",
+        Author:   ISSUER[:name_latin],
+        Creator:  'asxp.io'
+      }
+    )
+    register_fonts(pdf)
+    pdf.font('NotoSans')
+    pdf.fill_color COLOR_TEXT
+
+    draw_header(pdf)
+    draw_parties(pdf)
+    draw_meta(pdf)
+    draw_items(pdf)
+    draw_totals(pdf)
+    draw_payment(pdf)
+    draw_footer(pdf)
+
+    pdf.render
+  end
+
+  private
+
+  def register_fonts(pdf)
+    pdf.font_families.update(
+      'NotoSans' => {
+        normal: File.join(FONTS_DIR, 'NotoSans-Regular.ttf'),
+        bold:   File.join(FONTS_DIR, 'NotoSans-Bold.ttf'),
+        italic: File.join(FONTS_DIR, 'NotoSans-Italic.ttf')
+      },
+      'NotoSansGeorgian' => {
+        normal: File.join(FONTS_DIR, 'NotoSansGeorgian-Regular.ttf'),
+        bold:   File.join(FONTS_DIR, 'NotoSansGeorgian-Bold.ttf')
+      }
+    )
+    pdf.fallback_fonts = ['NotoSansGeorgian']
+  end
+
+  def draw_header(pdf)
+    pdf.font_size(20) { pdf.text 'INVOICE', style: :bold, character_spacing: 2 }
+    pdf.move_down 2
+    pdf.fill_color COLOR_MUTED
+    pdf.font_size(9) { pdf.text @invoice.number }
+    pdf.fill_color COLOR_TEXT
+    pdf.move_down 16
+    pdf.stroke_color COLOR_RULE
+    pdf.stroke_horizontal_rule
+    pdf.move_down 16
+  end
+
+  def draw_parties(pdf)
+    top_y = pdf.y
+    right = 285
+    col_w = 250
+
+    pdf.bounding_box([0, pdf.cursor], width: col_w) do
+      draw_party_label(pdf, 'FROM')
+      pdf.font_size(11) { pdf.text ISSUER[:name_latin], style: :bold, leading: 2 }
+      pdf.font_size(9) do
+        pdf.text ISSUER[:name_georgian], leading: 4
+        pdf.move_down 8
+        pdf.text ISSUER[:address].join("\n"), leading: 3
+        pdf.move_down 8
+        pdf.text "Tax ID: #{ISSUER[:tax_id]}",                            leading: 3
+        pdf.text "Reg. №: #{ISSUER[:reg_number]} (#{ISSUER[:registered]})", leading: 3
+        pdf.move_down 8
+        pdf.text ISSUER[:email], leading: 3
+        pdf.text ISSUER[:phone]
+      end
+    end
+    from_y = pdf.y
+
+    pdf.y = top_y
+    pdf.bounding_box([right, pdf.cursor], width: pdf.bounds.right - right) do
+      draw_party_label(pdf, 'BILL TO')
+      pdf.font_size(11) { pdf.text @invoice.client_name, style: :bold, leading: 2 }
+      pdf.font_size(9) do
+        pdf.text @invoice.client_email, leading: 3
+        unless @invoice.client_address.to_s.strip.empty?
+          pdf.move_down 8
+          pdf.text @invoice.client_address, leading: 3
+        end
+      end
+    end
+    bill_y = pdf.y
+
+    pdf.y = [from_y, bill_y].min
+    pdf.move_down 24
+  end
+
+  def draw_party_label(pdf, label)
+    pdf.fill_color COLOR_MUTED
+    pdf.font_size(8) { pdf.text label, character_spacing: 1.5 }
+    pdf.fill_color COLOR_TEXT
+    pdf.move_down 8
+  end
+
+  def draw_meta(pdf)
+    pdf.stroke_color COLOR_RULE
+    pdf.stroke_horizontal_rule
+    pdf.move_down 10
+
+    cells = [
+      ['ISSUED',   @invoice.issued_on.strftime('%Y-%m-%d')],
+      ['DUE',      @invoice.due_on.strftime('%Y-%m-%d')],
+      ['CURRENCY', @invoice.currency],
+      ['STATUS',   @invoice.status.upcase]
+    ]
+    col_w = pdf.bounds.width / cells.size.to_f
+    top   = pdf.cursor
+
+    cells.each_with_index do |(label, value), i|
+      pdf.bounding_box([i * col_w, top], width: col_w) do
+        pdf.fill_color COLOR_MUTED
+        pdf.font_size(7) { pdf.text label, character_spacing: 1.2 }
+        pdf.fill_color COLOR_TEXT
+        pdf.move_down 3
+        pdf.font_size(10) { pdf.text value, style: :bold }
+      end
+    end
+
+    # Reserve the height the row actually used.
+    pdf.move_down 30
+    pdf.stroke_horizontal_rule
+    pdf.move_down 16
+  end
+
+  def draw_items(pdf)
+    header = ['Description', 'Qty', "Unit (#{@invoice.currency})", "Amount (#{@invoice.currency})"]
+    rows = @invoice.items_array.map do |i|
+      qty  = BigDecimal(i['qty'].to_s)
+      unit = BigDecimal(i['unit_price'].to_s)
+      [i['description'], fmt_qty(qty), fmt_money(unit), fmt_money(qty * unit)]
+    end
+    table_data = [header] + rows
+
+    pdf.table(table_data, header: true, width: pdf.bounds.width,
+              column_widths: { 0 => pdf.bounds.width - 270, 1 => 60, 2 => 100, 3 => 110 }) do
+      cells.borders = [:bottom]
+      cells.border_color = COLOR_RULE
+      cells.padding = [8, 8, 8, 8]
+      cells.size = 9
+      row(0).font_style = :bold
+      row(0).text_color = COLOR_MUTED
+      row(0).size = 8
+      row(0).background_color = 'FAFAFA'
+      columns(1..3).align = :right
+    end
+    pdf.move_down 8
+  end
+
+  def draw_totals(pdf)
+    total = @invoice.total
+    rows = [
+      ['Subtotal', "#{@invoice.currency} #{fmt_money(total)}"],
+      ['Total',    "#{@invoice.currency} #{fmt_money(total)}"]
+    ]
+    if @invoice.currency != 'GEL'
+      rows << ["In GEL (rate #{fmt_money(@invoice.gel_rate)})", "GEL #{fmt_money(@invoice.total_gel)}"]
+    end
+
+    pdf.bounding_box([pdf.bounds.right - 270, pdf.cursor], width: 270) do
+      pdf.table(rows, cell_style: { borders: [], padding: [4, 0, 4, 0], size: 10 },
+                column_widths: { 0 => 130, 1 => 140 }) do
+        columns(0).text_color = COLOR_MUTED
+        columns(1).align = :right
+        row(1).font_style = :bold
+        row(1).text_color = COLOR_ACCENT
+        row(1).size = 12
+      end
+    end
+    pdf.move_down 30
+  end
+
+  def draw_payment(pdf)
+    pdf.fill_color COLOR_MUTED
+    pdf.font_size(8) { pdf.text 'PAYMENT', character_spacing: 1.5 }
+    pdf.fill_color COLOR_TEXT
+    pdf.move_down 4
+    pdf.font_size(9) do
+      pdf.text "Bank: #{ISSUER[:bank_name]}"
+      pdf.text "IBAN: #{ISSUER[:iban]}"
+      pdf.text "SWIFT: #{ISSUER[:swift]}"
+      pdf.text "Beneficiary: #{ISSUER[:name_latin]}"
+    end
+    unless @invoice.notes.to_s.strip.empty?
+      pdf.move_down 14
+      pdf.fill_color COLOR_MUTED
+      pdf.font_size(8) { pdf.text 'NOTES', character_spacing: 1.5 }
+      pdf.fill_color COLOR_TEXT
+      pdf.move_down 4
+      pdf.font_size(9) { pdf.text @invoice.notes }
+    end
+  end
+
+  def draw_footer(pdf)
+    pdf.repeat(:all) do
+      pdf.canvas do
+        pdf.fill_color COLOR_MUTED
+        pdf.font_size(8) do
+          pdf.draw_text(
+            "#{ISSUER[:name_latin]} · Tax ID #{ISSUER[:tax_id]} · Small Business (1% turnover tax)",
+            at: [50, 25]
+          )
+          pdf.draw_text("Page #{pdf.page_number}", at: [pdf.bounds.right - 50, 25])
+        end
+        pdf.fill_color COLOR_TEXT
+      end
+    end
+  end
+
+  def fmt_money(value)
+    BigDecimal(value.to_s).round(2).to_s('F').then { |s| with_thousands(s) }
+  end
+
+  def fmt_qty(value)
+    bd = BigDecimal(value.to_s)
+    bd.frac.zero? ? bd.to_i.to_s : bd.to_s('F')
+  end
+
+  def with_thousands(numstr)
+    int, frac = numstr.split('.')
+    int = int.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+    frac ? "#{int}.#{frac.ljust(2, '0')[0, 2]}" : "#{int}.00"
+  end
+end
