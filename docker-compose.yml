@@ -9,6 +9,7 @@ services:
     env_file: .env
     networks:
       - traefik
+      - storage
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.asxpio.rule=Host(`asxp.io`) || Host(`www.asxp.io`)"
@@ -19,4 +20,6 @@ services:
 
 networks:
   traefik:
+    external: true
+  storage:
     external: true
