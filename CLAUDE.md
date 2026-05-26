@@ -1,7 +1,11 @@
 # asxp.io — IE Sergei Poljanski website
 
 ## What this is
-The public-facing website for the user's Individual Entrepreneur registered in Georgia. Single-purpose: present the legal entity and accept contact-form submissions.
+The public-facing website for the user's Individual Entrepreneur registered in Georgia. Two responsibilities:
+1. Present the legal entity and accept contact-form submissions.
+2. Generate, store, and serve client invoices as signed PDF links.
+
+The site depends on the **storage stack** in the sibling `~/Code/projects/asxpio/storage` repo, which runs Postgres + MinIO on the same host. asxpio is stateless; all invoicing state lives there.
 
 ## Rule of thumb for this file
 **Same confidentiality bar as the rendered HTML.** If a fact isn't on the public page, it doesn't belong here. Sensitive operational details (banking, registration number, tax-regime reasoning) live in the user's private memory, not in the repo.
@@ -10,8 +14,6 @@ The public-facing website for the user's Individual Entrepreneur registered in G
 
 - **Never use the words "consulting" or "advisory"** anywhere on the site or in invoicing copy. Frame work as "services", "engineering", "implementation". This is for tax-classification reasons; ask the user before deviating.
 - **Never commit `.env`** or any real credential. Production secrets come from Forgejo secrets at deploy time.
-- **Don't write Claude Code as co-author on commits.** (User-global preference.)
-- **Don't write commits at all unless asked.** (User-global preference.)
 
 ## Entity facts (also visible on the rendered page)
 
@@ -29,14 +31,30 @@ Banking details and registration number are deliberately not on the public page 
 
 - **Sinatra 4.2** + Puma + Rack 3 + erubi, on Ruby 3.4
 - **Mail gem** for SMTP (Fastmail, STARTTLS on 587)
+- **Sequel + pg** for Postgres (the `asxpio` DB on the storage stack)
+- **Prawn + prawn-table** for PDF rendering, with vendored Noto Sans + Noto Sans Georgian in `public/fonts/`
+- **aws-sdk-s3** against MinIO on the storage stack
 - In-memory `RateLimit` (5 req/hour/IP) — see `lib/rate_limit.rb`
 - `Rack::Protection::AuthenticityToken` for CSRF (uses session-stored token)
+- `AdminAuth` Rack middleware: HTTP Basic on `/admin/*`, credentials from env. Greedy-prefix bug fixed; only `/admin` exact and `/admin/` paths are gated, so sibling assets like `/admin-invoice-form.js` stay public.
 - Honeypot field named `website` for spam
 - Static assets in `public/`; views in `views/`
-- Deploy: `Dockerfile` + `docker-compose.yml` (Traefik labels for asxp.io / www.asxp.io)
-- Dev shell: `flake.nix` (Ruby 3.4, bundler, openssl, zlib, libyaml). Run `nix develop`.
+- Deploy: `Dockerfile` + `docker-compose.yml` (Traefik labels for asxp.io / www.asxp.io). Container joins two external Docker networks: `traefik` (ingress) and `storage` (Postgres + MinIO).
+- Dev shell: `flake.nix` (Ruby 3.4, bundler, openssl, zlib, libyaml, postgresql). Run `nix develop`.
 
-The patterns mirror `~/Code/projects/narayana/www`. Use that repo as a reference for conventions (middleware, helpers, dotenv pattern) — but don't pull in narayana-specific things this site doesn't need (no Redis, no i18n, no Prawn, no API client).
+The patterns mirror `~/Code/projects/narayana/www`. Use that repo as a reference for conventions (middleware, helpers, dotenv pattern) — but don't pull in narayana-specific things this site doesn't need (no Redis, no i18n, no API client).
+
+## Storage stack dependency
+
+Postgres and MinIO are owned by `~/Code/projects/asxpio/storage` (separate Forgejo repo, separate deploy pipeline). asxpio talks to:
+
+- `postgres:5432` over the `storage` Docker network — for the `invoices` table.
+- `minio:9000` over the `storage` Docker network — for putting PDF bytes.
+- `https://s3.asxp.io` over Traefik — used **only** for presigned URLs, so the browser can dereference them. Same MinIO, different hostname.
+
+If the storage stack is down, the asxpio container will fail to boot (Sequel connects at process start). The contact form goes down with the invoicing UI in that case. Accepted trade-off; the alternative was a much more elaborate "degrade gracefully when DB is gone" path that wasn't worth the code.
+
+The `asxpio` Postgres role + `asxpio-invoices` MinIO bucket + scoped MinIO user are provisioned by the storage repo's init containers (`init/postgres-init.sh`, `init/minio-bootstrap.sh`). Changing those requires editing storage, not this repo.
 
 ## Contact form behavior
 
@@ -48,6 +66,43 @@ The patterns mirror `~/Code/projects/narayana/www`. Use that repo as a reference
 5. `Mailer.confirm_visitor` → receipt to visitor, `Reply-To: ie@asxp.io`. Failure here is logged but not surfaced to the user.
 
 `MAIL_FROM` must use a Fastmail-verified send-as address (currently `me@asxp.io`). The friendly name reads "IE Sergei Poljanski Contact Form".
+
+## Invoicing
+
+### Routes
+
+Admin (HTTP Basic via `ADMIN_USER`/`ADMIN_PASSWORD`):
+
+- `GET  /admin` → redirects to `/admin/invoices`.
+- `GET  /admin/invoices` — list, newest first.
+- `GET  /admin/invoices/new` — create form. Dynamic line items via `public/admin-invoice-form.js`.
+- `POST /admin/invoices` — validate → allocate number → render PDF → upload to MinIO → persist row.
+- `GET  /admin/invoices/:uuid` — detail page with public URL + "Mark paid" toggle.
+- `POST /admin/invoices/:uuid/paid` — toggles `paid_at`.
+
+Public:
+
+- `GET /i/:uuid` — landing page: client name, number, total, status badge, download button.
+- `GET /i/:uuid/pdf` — 302 to a 5-minute MinIO presigned URL (Content-Disposition: attachment).
+
+### Storage model
+
+- `invoices` table (`db/migrations/001_invoices.rb`): UUID PK, unique `number` (format `INV-{YYYY}-{NNNN}`, allocated by scanning the current year's max), JSONB `items`, captured-at-issue `gel_rate`, `paid_at` nullable, `pdf_key` for the MinIO object path (`invoices/<number>-<uuid>.pdf`).
+- `Invoice` (Sequel model) — number allocation, line-item normalization, `total` / `total_gel` helpers. **Always assign `uuid` as an attribute after `Invoice.new(...)`** — passing it to `new` raises `MassAssignmentRestriction` because Sequel guards primary keys.
+
+### PDF rendering
+
+`lib/invoice_pdf.rb` (Prawn). A4, single-column header + two-column parties + bracketed meta strip + line items + right-aligned totals + payment block + repeating footer. Noto Sans Georgian is registered as a fallback family so the Georgian legal name renders. Avoid Unicode characters not present in Noto Sans (e.g. `≈`) — they render as tofu.
+
+### Frontend
+
+Admin pages use a shared dark palette extended in `public/style.css` (search for `Invoices`). The new-invoice form's "+ add line" / row removal is plain vanilla JS in `public/admin-invoice-form.js` (no framework). The public landing intentionally exposes only what a recipient needs to confirm the right invoice; no banking details on the HTML page, those live inside the PDF.
+
+### Caveats
+
+- The `INV-{YYYY}-{NNNN}` allocator is `SELECT MAX(...) + 1`. Single-process deploy means no contention; if Puma ever runs multiple workers or we add a second container, switch to a DB-side sequence per year.
+- Anyone with the UUID can fetch the PDF. UUIDs are 122-bit random so not enumerable, but they aren't access-controlled. If a stronger gate is ever needed (email confirmation, expiry on paid, etc.) it goes in the `/i/:uuid` and `/i/:uuid/pdf` handlers.
+- The MinIO bucket is **private**; only the app's scoped service account can put/get. Presigned URLs use `S3_PUBLIC_ENDPOINT=https://s3.asxp.io` so the signed host matches what the browser fetches.
 
 ## Operational notes
 
@@ -73,24 +128,49 @@ The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, t
 ## Common tasks
 
 - **Generate a new SESSION_SECRET:** `openssl rand -hex 64` (then update Forgejo secret).
-- **Local dev:** `nix develop`, then `bundle exec rerun -- rackup -p 3000`. Visit `http://localhost:3000`.
+- **Generate a new ADMIN_PASSWORD:** `openssl rand -base64 24`. **Save it to a password manager** — Forgejo secrets are write-only.
+- **Local dev:** `nix develop`, then `bundle exec rerun -- rackup -p 3000`. Visit `http://localhost:3000`. Without `DATABASE_URL` the contact form still works; invoicing routes return 503.
 - **Local image build (sanity check):** `docker compose build`
 - **Production deploy:** automatic via `.forgejo/workflows/deploy.yaml` on push to `main`. Pipeline:
   1. Kaniko builds the image and pushes it to the Forgejo registry.
   2. SSH copies `docker-compose.yml` to the deploy directory on the prod host.
-  3. SSH writes `.env` (mode 600) from Forgejo secrets — `SESSION_SECRET` and `SMTP_PASSWORD` are interpolated; non-secret config is hardcoded in the workflow.
+  3. SSH writes `.env` (mode 600) from Forgejo secrets. The full set of invoicing envs (`DATABASE_URL`, `S3_*`, `ADMIN_*`) is built here; the per-app `ASXPIO_DB_PASSWORD` / `ASXPIO_S3_*` values must match the storage repo's Forgejo secrets, since storage's init containers provision the corresponding role + MinIO user.
   4. SSH `sed`-substitutes the image tag in `docker-compose.yml` and runs `docker compose up -d`.
 
 ## Where the secrets live
 
-| Forgejo secret    | Use                                 | Rotate by         |
-|-------------------|-------------------------------------|-------------------|
-| `SESSION_SECRET`  | Rack session cookie HMAC            | Update secret + push (or re-run last deploy). All sessions invalidated; nobody is logged in to this site so no user impact. |
-| `SMTP_PASSWORD`   | Fastmail app password               | Generate new app password in Fastmail → update secret → push. |
-| `DEPLOY_IP/USER/SSH_KEY` | SSH to prod from CI            | Standard SSH key rotation. |
-| `FORGEJO_REGISTRY/USER/TOKEN` | Kaniko registry auth        | Forgejo token rotation. |
+| Forgejo secret           | Use                                                                      | Rotate by                                                                                       |
+|--------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| `SESSION_SECRET`         | Rack session cookie HMAC                                                 | Update secret + push. All sessions invalidated; no user impact since nobody is logged in.        |
+| `SMTP_PASSWORD`          | Fastmail app password                                                    | New Fastmail app password → update secret → push.                                                |
+| `ADMIN_USER`             | HTTP Basic username for `/admin/*`                                       | Change secret + push.                                                                            |
+| `ADMIN_PASSWORD`         | HTTP Basic password for `/admin/*`                                       | Generate fresh, update secret + push. **Forgejo doesn't show old values.** Save to password manager. |
+| `ASXPIO_DB_PASSWORD`     | Password for the `asxpio` Postgres role                                  | Update on **both** repos to the same value. Push storage first (re-provisions role), then asxpio. |
+| `ASXPIO_S3_ACCESS_KEY`   | MinIO service account key, scoped to `asxpio-invoices`                   | Same dual-repo update. Push storage first.                                                       |
+| `ASXPIO_S3_SECRET_KEY`   | Matching MinIO secret                                                    | Same.                                                                                            |
+| `DEPLOY_IP/USER/SSH_KEY` | SSH to prod from CI                                                      | Standard SSH key rotation.                                                                       |
+| `FORGEJO_REGISTRY/USER/TOKEN` | Kaniko registry auth                                                | Forgejo token rotation.                                                                          |
 
-**Non-secret config that lives in the workflow** (not in `.env.example`, not in secrets): `SMTP_ADDR`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`, `MAIL_TO`. Change these by editing `.forgejo/workflows/deploy.yaml`.
+**Non-secret config that lives in the workflow** (not in `.env.example`, not in secrets): `SMTP_ADDR`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`, `MAIL_TO`, `DATABASE_URL` host portion, `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_BUCKET`. Change these by editing `.forgejo/workflows/deploy.yaml`.
+
+### Password character caveat (learned the hard way)
+
+`DATABASE_URL` is a URL, so `ASXPIO_DB_PASSWORD` **must not contain** `/`, `@`, `:`, `?`, `#`, `&`, `%`, `+`, `=`, or whitespace. If a rotation produces a password with those characters, Sequel will refuse to parse the URL and the container won't boot. Generate URL-safe passwords with:
+
+```
+LC_ALL=C tr -dc 'A-Za-z0-9._-' </dev/urandom | head -c 40; echo
+```
+
+### Recovering forgotten secrets
+
+If you forget the value of a write-only Forgejo secret, the live `.env` on prod still has it:
+
+```
+ssh deploy@<prod-host> 'sudo cat /opt/asxpio/.env'      # ADMIN_*, DATABASE_URL, S3_*
+ssh deploy@<prod-host> 'sudo cat /opt/storage/.env'     # ASXPIO_DB_PASSWORD etc. (same value, storage side)
+```
+
+Re-saving the secret in Forgejo to match a fresh value requires updating both repos and redeploying storage first.
 
 ## What `.env.example` is for
 
