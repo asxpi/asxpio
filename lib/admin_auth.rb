@@ -10,7 +10,8 @@ class AdminAuth
   end
 
   def call(env)
-    return @app.call(env) unless env['PATH_INFO'].to_s.start_with?('/admin')
+    path = env['PATH_INFO'].to_s
+    return @app.call(env) unless path == '/admin' || path.start_with?('/admin/')
 
     auth = Rack::Auth::Basic::Request.new(env)
     if @user && @pass && auth.provided? && auth.basic? && auth.credentials == [@user, @pass]
