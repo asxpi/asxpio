@@ -61,11 +61,16 @@ jobs:
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ASXPIO_DB_PASSWORD: ${{ secrets.ASXPIO_DB_PASSWORD }}
+          ASXPIO_S3_ACCESS_KEY: ${{ secrets.ASXPIO_S3_ACCESS_KEY }}
+          ASXPIO_S3_SECRET_KEY: ${{ secrets.ASXPIO_S3_SECRET_KEY }}
         with:
           host: ${{ secrets.DEPLOY_IP }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: SESSION_SECRET,SMTP_PASSWORD
+          envs: SESSION_SECRET,SMTP_PASSWORD,ADMIN_USER,ADMIN_PASSWORD,ASXPIO_DB_PASSWORD,ASXPIO_S3_ACCESS_KEY,ASXPIO_S3_SECRET_KEY
           script_stop: true
           script: |
             umask 077
@@ -79,6 +84,15 @@ jobs:
             SMTP_PASSWORD=${SMTP_PASSWORD}
             MAIL_FROM=IE Sergei Poljanski Contact Form <me@asxp.io>
             MAIL_TO=ie@asxp.io
+            ADMIN_USER=${ADMIN_USER}
+            ADMIN_PASSWORD=${ADMIN_PASSWORD}
+            DATABASE_URL=postgres://asxpio:${ASXPIO_DB_PASSWORD}@postgres:5432/asxpio
+            S3_ENDPOINT=http://minio:9000
+            S3_PUBLIC_ENDPOINT=https://s3.asxp.io
+            S3_REGION=us-east-1
+            S3_BUCKET=asxpio-invoices
+            S3_ACCESS_KEY=${ASXPIO_S3_ACCESS_KEY}
+            S3_SECRET_KEY=${ASXPIO_S3_SECRET_KEY}
             EOF
             chmod 600 /opt/asxpio/.env
 
