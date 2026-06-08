@@ -4,6 +4,8 @@ require 'bigdecimal'
 
 class InvoicePdf
   FONTS_DIR = File.join($root, 'public', 'fonts')
+  LOGO_PATH = File.join($root, 'public', 'logo.png')
+  LOGO_SIZE = 52
 
   ISSUER = {
     name_latin:    'IE Sergei Poljanski',
@@ -79,6 +81,12 @@ class InvoicePdf
   end
 
   def draw_header(pdf)
+    if File.exist?(LOGO_PATH)
+      pdf.image LOGO_PATH,
+                at:     [pdf.bounds.right - LOGO_SIZE, pdf.cursor],
+                width:  LOGO_SIZE,
+                height: LOGO_SIZE
+    end
     pdf.font_size(20) { pdf.text 'INVOICE', style: :bold, character_spacing: 2 }
     pdf.move_down 2
     pdf.fill_color COLOR_MUTED
