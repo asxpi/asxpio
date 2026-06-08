@@ -40,6 +40,13 @@ module S3
     key
   end
 
+  def exists?(key)
+    client.head_object(bucket: bucket, key: key)
+    true
+  rescue Aws::S3::Errors::NotFound, Aws::S3::Errors::NoSuchKey
+    false
+  end
+
   def presigned_url(key, expires_in: 300, filename: nil)
     params = { bucket: bucket, key: key }
     if filename

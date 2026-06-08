@@ -202,10 +202,11 @@ class AsxpioWeb < Sinatra::Base
     end
 
     invoice = Invoice.build(@form_values)
-    pdf_bytes = InvoicePdf.render(invoice)
-    pdf_key   = "invoices/#{invoice.number}-#{invoice.uuid}.pdf"
-    S3.put(pdf_key, pdf_bytes)
-    invoice.pdf_key = pdf_key
+    # Base key (no suffix); the two status variants get -pending/-paid appended.
+    invoice.pdf_key = "invoices/#{invoice.number}-#{invoice.uuid}.pdf"
+    %w[pending paid].each do |st|
+      S3.put(invoice.pdf_key_for(st), InvoicePdf.render(invoice, status: st))
+    end
     invoice.save_changes
 
     redirect "/admin/invoices/#{invoice.uuid}"
@@ -237,7 +238,11 @@ class AsxpioWeb < Sinatra::Base
 
   get '/i/:uuid/pdf' do
     invoice = Invoice[uuid: params[:uuid]] or halt 404
-    url = S3.presigned_url(invoice.pdf_key,
+    # Prefer the status variant; fall back to the legacy single-PDF key for
+    # invoices created before the pending/paid split.
+    key = invoice.current_pdf_key
+    key = invoice.pdf_key unless S3.exists?(key)
+    url = S3.presigned_url(key,
                            expires_in: 300,
                            filename:   "#{invoice.number}.pdf")
     redirect url, 302

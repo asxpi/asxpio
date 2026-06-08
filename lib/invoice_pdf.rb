@@ -31,12 +31,15 @@ class InvoicePdf
   COLOR_RULE    = 'DADADA'.freeze
   COLOR_ACCENT  = '1A1A1A'.freeze
 
-  def self.render(invoice)
-    new(invoice).render
+  # `status` overrides the status shown in the PDF (e.g. to pre-render a "paid"
+  # copy before any payment date exists). Defaults to the invoice's live status.
+  def self.render(invoice, status: nil)
+    new(invoice, status: status).render
   end
 
-  def initialize(invoice)
+  def initialize(invoice, status: nil)
     @invoice = invoice
+    @status  = status || invoice.status
   end
 
   def render
@@ -155,7 +158,7 @@ class InvoicePdf
       ['ISSUED',   @invoice.issued_on.strftime('%Y-%m-%d')],
       ['DUE',      @invoice.due_on.strftime('%Y-%m-%d')],
       ['CURRENCY', @invoice.currency],
-      ['STATUS',   @invoice.status.upcase]
+      ['STATUS',   @status.upcase]
     ]
     col_w = pdf.bounds.width / cells.size.to_f
     top   = pdf.cursor

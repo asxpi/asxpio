@@ -27,6 +27,17 @@ class Invoice < Sequel::Model(:invoices)
     paid? ? 'paid' : 'pending'
   end
 
+  # Both status variants are pre-rendered at creation; `pdf_key` is the base
+  # path (no suffix). The download route picks a variant by current status.
+  def pdf_key_for(status)
+    base = pdf_key.sub(/\.pdf\z/, '')
+    "#{base}-#{status}.pdf"
+  end
+
+  def current_pdf_key
+    pdf_key_for(status)
+  end
+
   def total
     BigDecimal(subtotal.to_s)
   end
