@@ -88,7 +88,12 @@ Public:
 ### Storage model
 
 - `invoices` table (`db/migrations/001_invoices.rb`): UUID PK, unique `number` (format `INV-{YYYY}-{NNNN}`, allocated by scanning the current year's max), JSONB `items`, captured-at-issue `gel_rate`, `paid_at` nullable, `pdf_key` for the MinIO object path (`invoices/<number>-<uuid>.pdf`).
-- `Invoice` (Sequel model) — number allocation, line-item normalization, `total` / `total_gel` helpers. **Always assign `uuid` as an attribute after `Invoice.new(...)`** — passing it to `new` raises `MassAssignmentRestriction` because Sequel guards primary keys.
+- `db/migrations/002_invoice_ltc.rb` adds optional Litecoin payment columns: `ltc_address` (captured at issue), `ltc_rate` (LTC price in the invoice currency, snapshotted), `ltc_amount` (LTC due — derived `total / ltc_rate` unless hand-overridden). All nullable; LTC is opt-in per invoice (blank address ⇒ no LTC block/QR).
+- `Invoice` (Sequel model) — number allocation, line-item normalization, `total` / `total_gel` helpers, plus `ltc?` and `ltc_amount_due`. **Always assign `uuid` as an attribute after `Invoice.new(...)`** — passing it to `new` raises `MassAssignmentRestriction` because Sequel guards primary keys.
+
+### Litecoin payment
+
+Opt-in per invoice. The new-invoice form has an LTC section (address prefilled from the `LTC_ADDRESS` env / Forgejo secret, editable), a rate field with a "Fetch live" button, and an editable amount that overrides the derived value. `GET /admin/ltc-rate?currency=&gel_rate=` returns the live LTC price as JSON via `lib/ltc_rate.rb` (CoinGecko, no API key; USD/EUR direct, GEL derived from the form's `gel_rate`). `lib/ltc_qr.rb` renders a `litecoin:<addr>?amount=<ltc>` BIP21 QR (rqrcode + chunky_png) embedded in the PDF.
 
 ### PDF rendering
 
@@ -148,6 +153,7 @@ The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, t
 | `ASXPIO_DB_PASSWORD`     | Password for the `asxpio` Postgres role                                  | Update on **both** repos to the same value. Push storage first (re-provisions role), then asxpio. |
 | `ASXPIO_S3_ACCESS_KEY`   | MinIO service account key, scoped to `asxpio-invoices`                   | Same dual-repo update. Push storage first.                                                       |
 | `ASXPIO_S3_SECRET_KEY`   | Matching MinIO secret                                                    | Same.                                                                                            |
+| `LTC_ADDRESS`            | Default Litecoin payout address prefilled into the new-invoice form     | Not confidential (printed on every invoice + QR), but kept as a secret so rotation is a one-place change. Update secret + push. Existing invoices keep their captured address. |
 | `DEPLOY_IP/USER/SSH_KEY` | SSH to prod from CI                                                      | Standard SSH key rotation.                                                                       |
 | `FORGEJO_REGISTRY/USER/TOKEN` | Kaniko registry auth                                                | Forgejo token rotation.                                                                          |
 
