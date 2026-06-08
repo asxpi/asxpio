@@ -16,11 +16,10 @@ main {
 }
 .monogram {
     display: inline-block;
+    width: 56px;
+    height: 56px;
     margin-bottom: 14px;
     line-height: 0;
-}
-.monogram svg {
-    display: block;
 }
 .header h1 {
     font-size: 1.8rem;
