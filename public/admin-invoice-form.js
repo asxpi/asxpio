@@ -59,8 +59,11 @@
         }
     }
 
+    const gelRateCcy = document.getElementById('gel-rate-ccy');
     function syncCcyLabel() {
-        if (rateCcy && currencySel) rateCcy.textContent = currencySel.value;
+        const ccy = currencySel ? currencySel.value : 'USD';
+        if (rateCcy) rateCcy.textContent = ccy;
+        if (gelRateCcy) gelRateCcy.textContent = ccy;
     }
     syncCcyLabel();
     if (currencySel) currencySel.addEventListener('change', syncCcyLabel);
@@ -84,5 +87,39 @@
                 })
                 .catch(() => { rateStatus.textContent = ' network error'; });
         });
+    }
+
+    // --- Official GEL rate from NBG -------------------------------------
+    const gelFetchBtn = document.getElementById('fetch-gel-rate');
+    const gelStatus = document.getElementById('gel-rate-status');
+    const issuedInput = document.getElementById('issued_on');
+
+    if (gelFetchBtn) {
+        gelFetchBtn.addEventListener('click', function () {
+            const ccy = currencySel ? currencySel.value : 'USD';
+            const params = new URLSearchParams({ currency: ccy });
+            // Past invoice ⇒ fetch the rate as published for the issued date.
+            if (issuedInput && issuedInput.value && issuedInput.value < today()) {
+                params.set('date', issuedInput.value);
+            }
+            gelStatus.textContent = ' fetching…';
+            fetch('/admin/gel-rate?' + params.toString(), { headers: { Accept: 'application/json' } })
+                .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+                .then(({ ok, j }) => {
+                    if (!ok) { gelStatus.textContent = ' ' + (j.error || 'failed'); return; }
+                    if (gelRateInput) gelRateInput.value = j.rate;
+                    gelStatus.textContent = params.has('date')
+                        ? ' ✓ official ' + params.get('date')
+                        : ' ✓ official (latest)';
+                })
+                .catch(() => { gelStatus.textContent = ' network error'; });
+        });
+    }
+
+    function today() {
+        const d = new Date();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + day;
     }
 })();

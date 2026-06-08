@@ -48,8 +48,10 @@
                 </select>
             </div>
             <div class="field">
-                <label for="gel_rate">GEL rate</label>
+                <label for="gel_rate">GEL rate (GEL per 1 <span id="gel-rate-ccy">unit</span>)</label>
                 <input type="text" id="gel_rate" name="gel_rate" value="<%= @form_values[:gel_rate] %>" placeholder="2.9500" inputmode="decimal" required />
+                <button type="button" id="fetch-gel-rate" class="link-button">↻ Fetch official (NBG)</button>
+                <span id="gel-rate-status" class="optional"></span>
             </div>
         </div>
 

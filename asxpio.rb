@@ -28,6 +28,7 @@ if ENV['DATABASE_URL']
   require_relative 'lib/invoice'
   require_relative 'lib/ltc_rate'
   require_relative 'lib/ltc_qr'
+  require_relative 'lib/gel_rate'
   require_relative 'lib/invoice_pdf'
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
@@ -64,6 +65,20 @@ class AsxpioWeb < Sinatra::Base
       request.env['HTTP_X_FORWARDED_FOR']&.split(',')&.first&.strip ||
         request.env['HTTP_X_REAL_IP'] ||
         request.ip
+    end
+
+    # Exchange rate for display: full captured precision (up to 8 dp), trailing
+    # zeros trimmed, padded to at least min_dp. Mirrors InvoicePdf#fmt_rate so
+    # the HTML and PDF agree. (4 dp matches the NBG's GEL quoting.)
+    def fmt_rate(value, min_dp = 4)
+      frac = BigDecimal(value.to_s).round(8).to_s('F').split('.').last.sub(/0+$/, '')
+      whole = BigDecimal(value.to_s).to_i
+      "#{whole}.#{frac.ljust(min_dp, '0')}"
+    end
+
+    # LTC amount: up to 8 dp, trailing zeros trimmed, no padding.
+    def fmt_ltc(value)
+      BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\1').sub(/\.$/, '')
     end
   end
 
@@ -164,6 +179,30 @@ class AsxpioWeb < Sinatra::Base
       rate = LtcRate.fetch(currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
       { rate: rate.round(8).to_s('F'), currency: currency }.to_json
     rescue LtcRate::Error => e
+      status 502
+      { error: e.message }.to_json
+    end
+  end
+
+  # Official GEL rate from the National Bank of Georgia for the new-invoice
+  # form's "Fetch official" button. The rate is GEL per 1 unit of the invoice
+  # currency (USD/EUR), so it tracks the form's selected currency. Pass date=
+  # for a past invoice (NBG rolls back to the last published rate on
+  # weekends/holidays). GEL invoices have a trivial rate of 1 — no fetch needed.
+  get '/admin/gel-rate' do
+    content_type :json
+    currency = params[:currency].to_s.upcase
+    currency = 'USD' if currency.empty?
+    date = params[:date].to_s.strip
+
+    if currency == 'GEL'
+      return { rate: '1', currency: 'GEL', date: date }.to_json
+    end
+
+    begin
+      rate = GelRate.fetch(currency, date: date.empty? ? nil : date)
+      { rate: rate.to_s('F').sub(/(\.\d*?)0+$/, '\1').sub(/\.$/, ''), currency: currency, date: date }.to_json
+    rescue GelRate::Error => e
       status 502
       { error: e.message }.to_json
     end

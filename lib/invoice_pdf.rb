@@ -210,7 +210,7 @@ class InvoicePdf
       ['Total',    "#{@invoice.currency} #{fmt_money(total)}"]
     ]
     if @invoice.currency != 'GEL'
-      rows << ["In GEL (rate #{fmt_money(@invoice.gel_rate)})", "GEL #{fmt_money(@invoice.total_gel)}"]
+      rows << ["In GEL (rate #{fmt_rate(@invoice.gel_rate)})", "GEL #{fmt_money(@invoice.total_gel)}"]
     end
 
     pdf.bounding_box([pdf.bounds.right - 270, pdf.cursor], width: 270) do
@@ -277,7 +277,7 @@ class InvoicePdf
             pdf.text "Amount: #{fmt_ltc(amount)} LTC", style: :bold
             if @invoice.ltc_rate
               pdf.fill_color COLOR_MUTED
-              pdf.text "(rate 1 LTC = #{fmt_money(@invoice.ltc_rate)} #{@invoice.currency} at issue)", size: 8
+              pdf.text "(rate 1 LTC = #{fmt_rate(@invoice.ltc_rate)} #{@invoice.currency} at issue)", size: 8
               pdf.fill_color COLOR_TEXT
             end
             pdf.move_down 3
@@ -327,6 +327,17 @@ class InvoicePdf
 
   def fmt_ltc(value)
     BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\\1').sub(/\.$/, '')
+  end
+
+  # Exchange rate: keep full captured precision (up to 8 dp), trim trailing
+  # zeros, but pad to at least `min_dp` so it reads as a rate. GEL/USD rates are
+  # quoted to 4 dp by the NBG, so the default min is 4.
+  def fmt_rate(value, min_dp: 4)
+    s = BigDecimal(value.to_s).round(8).to_s('F')
+    int, frac = s.split('.')
+    frac = (frac || '').sub(/0+$/, '')
+    frac = frac.ljust(min_dp, '0')
+    "#{with_thousands("#{int}.00").split('.').first}.#{frac}"
   end
 
   def fmt_qty(value)
