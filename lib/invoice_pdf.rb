@@ -1,6 +1,7 @@
 require 'prawn'
 require 'prawn/table'
 require 'bigdecimal'
+require 'stringio'
 
 class InvoicePdf
   FONTS_DIR = File.join($root, 'public', 'fonts')
@@ -233,6 +234,9 @@ class InvoicePdf
       pdf.text "SWIFT: #{ISSUER[:swift]}"
       pdf.text "Beneficiary: #{ISSUER[:name_latin]}"
     end
+
+    draw_ltc(pdf) if @invoice.respond_to?(:ltc?) && @invoice.ltc?
+
     unless @invoice.notes.to_s.strip.empty?
       pdf.move_down 14
       pdf.fill_color COLOR_MUTED
@@ -243,7 +247,51 @@ class InvoicePdf
     end
   end
 
+  def draw_ltc(pdf)
+    amount  = @invoice.ltc_amount_due
+    qr_size = 78
+
+    pdf.move_down 12
+    pdf.fill_color COLOR_MUTED
+    pdf.font_size(8) { pdf.text 'PAY IN LITECOIN (LTC)', character_spacing: 1.5 }
+    pdf.fill_color COLOR_TEXT
+    pdf.move_down 4
+
+    # Fixed-height row: QR on the right (drawn with float so it doesn't advance
+    # the cursor), text column on the left. The outer bounding_box of height
+    # qr_size leaves the cursor exactly below the row when it ends.
+    qr_bytes = LtcQr.png(@invoice.ltc_address, amount)
+    pdf.bounding_box([0, pdf.cursor], width: pdf.bounds.width, height: qr_size) do
+      pdf.float do
+        pdf.bounding_box([pdf.bounds.right - qr_size, pdf.bounds.top], width: qr_size, height: qr_size) do
+          pdf.image StringIO.new(qr_bytes), width: qr_size, height: qr_size
+        end
+      end
+
+      pdf.bounding_box([0, pdf.bounds.top], width: pdf.bounds.width - qr_size - 16) do
+        pdf.font_size(9) do
+          if amount
+            pdf.text "Amount: #{fmt_ltc(amount)} LTC", style: :bold
+            if @invoice.ltc_rate
+              pdf.fill_color COLOR_MUTED
+              pdf.text "(rate 1 LTC = #{fmt_money(@invoice.ltc_rate)} #{@invoice.currency} at issue)", size: 8
+              pdf.fill_color COLOR_TEXT
+            end
+            pdf.move_down 3
+          end
+          pdf.text 'Address:'
+          pdf.font_size(8) { pdf.text @invoice.ltc_address }
+          pdf.move_down 3
+          pdf.fill_color COLOR_MUTED
+          pdf.font_size(7) { pdf.text 'Scan the QR with any Litecoin wallet to prefill the payment.' }
+          pdf.fill_color COLOR_TEXT
+        end
+      end
+    end
+  end
+
   def draw_footer(pdf)
+    # Static left-side line repeats on every page.
     pdf.repeat(:all) do
       pdf.canvas do
         pdf.fill_color COLOR_MUTED
@@ -252,15 +300,30 @@ class InvoicePdf
             "#{ISSUER[:name_latin]} · Tax ID #{ISSUER[:tax_id]} · Small Business (1% turnover tax)",
             at: [50, 25]
           )
-          pdf.draw_text("Page #{pdf.page_number}", at: [pdf.bounds.right - 50, 25])
         end
         pdf.fill_color COLOR_TEXT
       end
     end
+
+    # Page number must be stamped per page: inside repeat(:all), pdf.page_number
+    # resolves to the final page count for every page. number_pages substitutes
+    # <page>/<total> at finalization, once per actual page.
+    pdf.number_pages(
+      'Page <page> of <total>',
+      at:      [pdf.bounds.right - 90, -25],
+      width:   90,
+      align:   :right,
+      size:    8,
+      color:   COLOR_MUTED
+    )
   end
 
   def fmt_money(value)
     BigDecimal(value.to_s).round(2).to_s('F').then { |s| with_thousands(s) }
+  end
+
+  def fmt_ltc(value)
+    BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\\1').sub(/\.$/, '')
   end
 
   def fmt_qty(value)

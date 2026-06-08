@@ -16,6 +16,8 @@ gem 'pg',              '~> 1.5'
 gem 'sequel',          '~> 5.86'
 gem 'prawn',           '~> 2.5'
 gem 'prawn-table',     '~> 0.2'
+gem 'rqrcode',         '~> 2.2'
+gem 'chunky_png',      '~> 1.4'
 gem 'aws-sdk-s3',      '~> 1.170'
 
 group :development do

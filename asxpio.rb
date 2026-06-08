@@ -26,6 +26,8 @@ if ENV['DATABASE_URL']
   DB.connect!
   DB.migrate!
   require_relative 'lib/invoice'
+  require_relative 'lib/ltc_rate'
+  require_relative 'lib/ltc_qr'
   require_relative 'lib/invoice_pdf'
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
@@ -152,6 +154,21 @@ class AsxpioWeb < Sinatra::Base
     erb :'admin/invoices/index'
   end
 
+  # Live LTC price for the new-invoice form's "Fetch live" button.
+  # GEL is derived from the gel_rate the operator typed into the form.
+  get '/admin/ltc-rate' do
+    content_type :json
+    currency = params[:currency].to_s.upcase
+    gel_rate = params[:gel_rate].to_s.strip
+    begin
+      rate = LtcRate.fetch(currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
+      { rate: rate.round(8).to_s('F'), currency: currency }.to_json
+    rescue LtcRate::Error => e
+      status 502
+      { error: e.message }.to_json
+    end
+  end
+
   get '/admin/invoices/new' do
     @page_title  = 'New invoice — admin'
     @noindex     = true
@@ -170,6 +187,9 @@ class AsxpioWeb < Sinatra::Base
       issued_on:      params[:issued_on].to_s.strip,
       due_on:         params[:due_on].to_s.strip,
       notes:          params[:notes].to_s.strip,
+      ltc_address:    params[:ltc_address].to_s.strip,
+      ltc_rate:       params[:ltc_rate].to_s.strip,
+      ltc_amount:     params[:ltc_amount].to_s.strip,
       items:          (params[:items] || {}).values
     }
     @form_errors = validate_invoice_params(@form_values)
@@ -247,6 +267,19 @@ class AsxpioWeb < Sinatra::Base
       items = v[:items].select { |i| i.is_a?(Hash) && !i['description'].to_s.strip.empty? }
       errors[:items] = 'At least one line item with a description is required' if items.empty?
       v[:items] = items
+
+      # LTC is optional; validate only when an address is present.
+      unless v[:ltc_address].to_s.strip.empty?
+        errors[:ltc_address] = 'LTC address looks invalid' unless v[:ltc_address] =~ /\A(ltc1|[LM3])[a-zA-HJ-NP-Z0-9]{20,90}\z/
+        %i[ltc_rate ltc_amount].each do |k|
+          next if v[k].to_s.strip.empty?
+          begin
+            raise ArgumentError if BigDecimal(v[k]) <= 0
+          rescue ArgumentError
+            errors[k] = "#{k.to_s.tr('_', ' ').capitalize} must be a positive decimal"
+          end
+        end
+      end
       errors
     end
   end

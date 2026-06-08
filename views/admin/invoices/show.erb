@@ -13,6 +13,13 @@
         <% if @invoice.paid_at %>
             <dt>Paid at</dt><dd class="mono"><%= @invoice.paid_at.utc.strftime('%Y-%m-%d %H:%M UTC') %></dd>
         <% end %>
+        <% if @invoice.ltc? %>
+            <dt>LTC</dt>
+            <dd class="mono">
+                <% if (amt = @invoice.ltc_amount_due) %><%= amt.to_s('F').sub(/\.?0+$/, '') %> LTC<% if @invoice.ltc_rate %> @ <%= '%.2f' % @invoice.ltc_rate %> <%= @invoice.currency %><% end %><br /><% end %>
+                <span style="word-break:break-all;"><%= @invoice.ltc_address %></span>
+            </dd>
+        <% end %>
     </dl>
 </section>
 

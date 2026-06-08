@@ -35,6 +35,19 @@ class Invoice < Sequel::Model(:invoices)
     (total * BigDecimal(gel_rate.to_s)).round(2)
   end
 
+  def ltc?
+    !ltc_address.to_s.strip.empty?
+  end
+
+  # The LTC amount to display / encode in the QR. Returns nil when no amount
+  # is known (address-only invoice).
+  def ltc_amount_due
+    return nil unless ltc?
+    return BigDecimal(ltc_amount.to_s) unless ltc_amount.nil?
+    return nil if ltc_rate.nil? || BigDecimal(ltc_rate.to_s).zero?
+    (total / BigDecimal(ltc_rate.to_s)).round(8)
+  end
+
   class << self
     def allocate_number(year = Date.today.year)
       prefix = "INV-#{year}-"
@@ -64,11 +77,36 @@ class Invoice < Sequel::Model(:invoices)
         pdf_key:        '',
         created_at:     Time.now.utc
       )
+      apply_ltc(invoice, params, subtotal)
       invoice.uuid = SecureRandom.uuid
       invoice
     end
 
     private
+
+    # LTC is opt-in: only populated when an address is given. Rate and amount
+    # are both optional; if amount is blank but rate is present, derive it.
+    def apply_ltc(invoice, params, subtotal)
+      address = params[:ltc_address].to_s.strip
+      return if address.empty?
+
+      invoice.ltc_address = address
+
+      rate = decimal_or_nil(params[:ltc_rate])
+      invoice.ltc_rate = rate
+
+      amount = decimal_or_nil(params[:ltc_amount])
+      amount ||= (subtotal / rate).round(8) if rate && !rate.zero?
+      invoice.ltc_amount = amount
+    end
+
+    def decimal_or_nil(raw)
+      s = raw.to_s.strip
+      return nil if s.empty?
+      BigDecimal(s)
+    rescue ArgumentError
+      nil
+    end
 
     def normalize_currency(c)
       c = c.to_s.upcase

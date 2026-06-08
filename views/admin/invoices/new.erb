@@ -81,6 +81,29 @@
             <textarea id="notes" name="notes" rows="3" maxlength="1000"><%= @form_values[:notes] %></textarea>
         </div>
 
+        <h2>Litecoin payment <span class="optional">(optional)</span></h2>
+        <p class="optional" style="margin-top:-6px;">Leave the address blank to omit the LTC block and QR from the invoice.</p>
+        <div class="field">
+            <label for="ltc_address">LTC address</label>
+            <input type="text" id="ltc_address" name="ltc_address"
+                   value="<%= @form_values[:ltc_address] || ENV['LTC_ADDRESS'] %>"
+                   placeholder="ltc1..." maxlength="90" />
+        </div>
+        <div class="invoice-grid">
+            <div class="field">
+                <label for="ltc_rate">LTC rate (1 LTC in <span id="ltc-rate-ccy">currency</span>)</label>
+                <input type="text" id="ltc_rate" name="ltc_rate" value="<%= @form_values[:ltc_rate] %>"
+                       placeholder="e.g. 85.20" inputmode="decimal" />
+                <button type="button" id="fetch-ltc-rate" class="link-button">↻ Fetch live</button>
+                <span id="ltc-rate-status" class="optional"></span>
+            </div>
+            <div class="field">
+                <label for="ltc_amount">LTC amount due <span class="optional">(auto from rate; editable)</span></label>
+                <input type="text" id="ltc_amount" name="ltc_amount" value="<%= @form_values[:ltc_amount] %>"
+                       placeholder="auto" inputmode="decimal" />
+            </div>
+        </div>
+
         <button type="submit">Create invoice</button>
     </form>
 </section>
