@@ -13,8 +13,6 @@ class InvoicePdf
     name_alt:      'SERGEI POLJANSKI',
     name_georgian: 'ინდ. მეწარმე სერგეი პოლჯანსკი',
     tax_id:        '304813343',
-    reg_number:    'B26353511',
-    registered:    '2026-05-04',
     address:       [
       'Ilia and Nino Nakashidze St, N 1, Building N3, Apt N3',
       'Krtsanisi, Tbilisi, Georgia'
@@ -30,6 +28,13 @@ class InvoicePdf
   COLOR_MUTED   = '6F6F6F'.freeze
   COLOR_RULE    = 'DADADA'.freeze
   COLOR_ACCENT  = '1A1A1A'.freeze
+
+  # Uniform line spacing for the FROM / BILL TO party blocks: every line gets the
+  # same leading, no extra gaps between groups, so both columns read as one even
+  # rhythm and line up. NAME_GAP is the one exception — a little extra air after
+  # the bold company name to set it off from the details below.
+  PARTY_LEADING = 2
+  NAME_GAP      = 3
 
   # `status` overrides the status shown in the PDF (e.g. to pre-render a "paid"
   # copy before any payment date exists). Defaults to the invoice's live status.
@@ -109,17 +114,17 @@ class InvoicePdf
 
     pdf.bounding_box([0, pdf.cursor], width: col_w) do
       draw_party_label(pdf, 'FROM')
-      pdf.font_size(11) { pdf.text ISSUER[:name_latin], style: :bold, leading: 2 }
+      pdf.font_size(11) { pdf.text ISSUER[:name_latin], style: :bold, leading: PARTY_LEADING }
+      pdf.move_down NAME_GAP
       pdf.font_size(9) do
-        pdf.text ISSUER[:name_georgian], leading: 4
-        pdf.move_down 8
-        pdf.text ISSUER[:address].join("\n"), leading: 3
-        pdf.move_down 8
-        pdf.text "Tax ID: #{ISSUER[:tax_id]}",                            leading: 3
-        pdf.text "Reg. №: #{ISSUER[:reg_number]} (#{ISSUER[:registered]})", leading: 3
-        pdf.move_down 8
-        pdf.text ISSUER[:email], leading: 3
-        pdf.text ISSUER[:phone]
+        lines = [
+          ISSUER[:name_georgian],
+          *ISSUER[:address],
+          "Tax ID: #{ISSUER[:tax_id]}",
+          ISSUER[:email],
+          ISSUER[:phone]
+        ]
+        pdf.text lines.join("\n"), leading: PARTY_LEADING
       end
     end
     from_y = pdf.y
@@ -127,13 +132,12 @@ class InvoicePdf
     pdf.y = top_y
     pdf.bounding_box([right, pdf.cursor], width: pdf.bounds.right - right) do
       draw_party_label(pdf, 'BILL TO')
-      pdf.font_size(11) { pdf.text @invoice.client_name, style: :bold, leading: 2 }
+      pdf.font_size(11) { pdf.text @invoice.client_name, style: :bold, leading: PARTY_LEADING }
+      pdf.move_down NAME_GAP
       pdf.font_size(9) do
-        pdf.text @invoice.client_email, leading: 3
-        unless @invoice.client_address.to_s.strip.empty?
-          pdf.move_down 8
-          pdf.text @invoice.client_address, leading: 3
-        end
+        lines = [@invoice.client_email]
+        lines << @invoice.client_address unless @invoice.client_address.to_s.strip.empty?
+        pdf.text lines.join("\n"), leading: PARTY_LEADING
       end
     end
     bill_y = pdf.y
@@ -152,7 +156,7 @@ class InvoicePdf
   def draw_meta(pdf)
     pdf.stroke_color COLOR_RULE
     pdf.stroke_horizontal_rule
-    pdf.move_down 10
+    pdf.move_down 8
 
     cells = [
       ['ISSUED',   @invoice.issued_on.strftime('%Y-%m-%d')],
@@ -168,13 +172,16 @@ class InvoicePdf
         pdf.fill_color COLOR_MUTED
         pdf.font_size(7) { pdf.text label, character_spacing: 1.2 }
         pdf.fill_color COLOR_TEXT
-        pdf.move_down 3
+        pdf.move_down 2
         pdf.font_size(10) { pdf.text value, style: :bold }
       end
     end
 
-    # Reserve the height the row actually used.
-    pdf.move_down 30
+    # The cells are absolutely-positioned boxes that don't advance the outer
+    # cursor, so reserve the row height manually. Tuned (measured from the
+    # rendered PNG) so the gap below the values matches the ~10pt gap above the
+    # labels rather than ballooning to ~29pt.
+    pdf.move_down 9
     pdf.stroke_horizontal_rule
     pdf.move_down 16
   end
