@@ -40,6 +40,9 @@
             <% if @invoice.paid? %>Mark unpaid<% else %>Mark paid<% end %>
         </button>
     </form>
+    <p style="margin-top: 14px;">
+        <a href="/admin/invoices/<%= @invoice.uuid %>/duplicate">Use as template for a new invoice →</a>
+    </p>
 </section>
 
 <% unless @invoice.notes.to_s.strip.empty? %>

@@ -216,6 +216,32 @@ class AsxpioWeb < Sinatra::Base
     erb :'admin/invoices/new'
   end
 
+  # Start a new invoice prefilled from an existing one ("use as template").
+  # Reuses the new-invoice form via @form_values. Issue date resets to today and
+  # the due date keeps the source's payment term (same issued→due gap, anchored
+  # to today). The snapshotted LTC rate/amount are dropped (stale prices) — the
+  # address is kept so the operator only re-fetches the live rate.
+  get '/admin/invoices/:uuid/duplicate' do
+    src = Invoice[uuid: params[:uuid]] or halt 404
+    term = (src.due_on - src.issued_on).to_i
+    @page_title  = 'New invoice — admin'
+    @noindex     = true
+    @form_errors = nil
+    @form_values = {
+      client_name:    src.client_name,
+      client_email:   src.client_email,
+      client_address: src.client_address,
+      currency:       src.currency,
+      gel_rate:       src.gel_rate.to_s,
+      issued_on:      Date.today.strftime('%Y-%m-%d'),
+      due_on:         (Date.today + term).strftime('%Y-%m-%d'),
+      notes:          src.notes,
+      ltc_address:    src.ltc_address,
+      items:          src.items_array
+    }
+    erb :'admin/invoices/new'
+  end
+
   post '/admin/invoices' do
     @form_values = {
       client_name:    params[:client_name].to_s.strip,
