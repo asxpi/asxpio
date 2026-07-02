@@ -12,17 +12,15 @@ jobs:
       # CI stand-in for bin/test's ephemeral Postgres: the nix container runs
       # as root and initdb refuses to run as root, so the DB lives in a
       # service container instead and the suite connects via TEST_DATABASE_URL.
-      # The runner puts job containers on the host network while services sit
-      # on the per-workflow bridge, so the `postgres` hostname doesn't resolve
-      # from the job — the service publishes 5432 and the suite dials loopback.
+      # Job and service share the per-workflow bridge network (the runner's
+      # container.network must stay "" — with "host" the service network is
+      # never created and services fail to start).
       postgres:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: asxpio_test
-        ports:
-          - 5432:5432
     steps:
       - name: Prepare container for actions
         run: |
@@ -35,7 +33,7 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do
-            nix develop -c pg_isready -h 127.0.0.1 -U postgres && exit 0
+            nix develop -c pg_isready -h postgres -U postgres && exit 0
             sleep 2
           done
           echo "Postgres service never became ready" >&2
@@ -43,5 +41,5 @@ jobs:
 
       - name: Run test suite
         env:
-          TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/asxpio_test
+          TEST_DATABASE_URL: postgres://postgres@postgres:5432/asxpio_test
         run: nix develop -c bundle exec rake test
