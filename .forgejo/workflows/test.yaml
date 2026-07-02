@@ -33,6 +33,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The nix closure persists in the runner's nix-store volume; gems live
+      # in the workspace (.gems via the flake's BUNDLE_PATH), so cache those.
+      - name: Cache gems
+        uses: actions/cache@v4
+        with:
+          path: .gems
+          key: gems-${{ hashFiles('Gemfile.lock') }}
+
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do

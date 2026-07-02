@@ -27,6 +27,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache gems
+        uses: actions/cache@v4
+        with:
+          path: .gems
+          key: gems-${{ hashFiles('Gemfile.lock') }}
+
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do
