@@ -329,13 +329,25 @@ class AsxpioWeb < Sinatra::Base
       errors[:client_email] = 'Valid client email required'        if v[:client_email].empty? || v[:client_email] !~ URI::MailTo::EMAIL_REGEXP
       errors[:currency]     = 'Unsupported currency'               unless Invoice::CURRENCIES.include?(v[:currency])
       begin
-        raise ArgumentError if v[:gel_rate].empty?
-        BigDecimal(v[:gel_rate])
+        raise ArgumentError if v[:gel_rate].empty? || BigDecimal(v[:gel_rate]) <= 0
       rescue ArgumentError
         errors[:gel_rate] = 'GEL rate must be a positive decimal'
       end
       items = v[:items].select { |i| i.is_a?(Hash) && !i['description'].to_s.strip.empty? }
       errors[:items] = 'At least one line item with a description is required' if items.empty?
+      # Blank qty/price default to 0 in Invoice.normalize_items; non-blank must
+      # parse, or BigDecimal would raise a 500 out of Invoice.build.
+      items.each do |i|
+        %w[qty unit_price].each do |k|
+          raw = i[k].to_s
+          next if raw.empty?
+          begin
+            BigDecimal(raw)
+          rescue ArgumentError
+            errors[:items] = 'Qty and unit price must be decimal numbers (use a dot, e.g. 1.5)'
+          end
+        end
+      end
       v[:items] = items
 
       # LTC is optional; validate only when an address is present.
