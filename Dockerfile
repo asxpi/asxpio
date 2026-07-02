@@ -15,7 +15,7 @@ ENV GEM_HOME=/app/bundle
 ENV PATH="${GEM_HOME}/bin:${PATH}"
 
 COPY --chown=asxpio Gemfile Gemfile.lock* ./
-RUN bundle install --without development
+RUN bundle install --without development:test
 
 COPY --chown=asxpio . .
 

@@ -7,7 +7,9 @@ require 'uri'
 
 begin
   require 'dotenv'
-  Dotenv.load
+  # Tests control ENV themselves; a developer's .env must not leak in (it may
+  # point DATABASE_URL at a real database).
+  Dotenv.load unless ENV['RACK_ENV'] == 'test'
 rescue LoadError
 end
 

@@ -12,3 +12,6 @@ tmp
 flake.nix
 flake.lock
 CLAUDE.md
+test
+Rakefile
+bin

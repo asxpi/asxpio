@@ -135,6 +135,7 @@ The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, t
 - **Generate a new SESSION_SECRET:** `openssl rand -hex 64` (then update Forgejo secret).
 - **Generate a new ADMIN_PASSWORD:** `openssl rand -base64 24`. **Save it to a password manager** — Forgejo secrets are write-only.
 - **Local dev:** `nix develop`, then `bundle exec rerun -- rackup -p 3000`. Visit `http://localhost:3000`. Without `DATABASE_URL` the contact form still works; invoicing routes return 503.
+- **Run tests:** `nix develop -c bin/test` — full suite (minitest + rack-test) against an ephemeral Postgres it provisions and tears down itself. `bundle exec rake test` runs without a DB, skipping DB-backed tests. Mail uses `Mail::TestMailer`; S3 uses aws-sdk stubbed responses; tests never touch real services, and `.env` is deliberately not loaded when `RACK_ENV=test`.
 - **Local image build (sanity check):** `docker compose build`
 - **Production deploy:** automatic via `.forgejo/workflows/deploy.yaml` on push to `main`. Pipeline:
   1. Kaniko builds the image and pushes it to the Forgejo registry.

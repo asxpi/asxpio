@@ -26,3 +26,9 @@ gem 'rexml',           '~> 3.4'
 group :development do
   gem 'rerun', '~> 0.14'
 end
+
+group :test do
+  gem 'minitest',  '~> 5.25'
+  gem 'rack-test', '~> 2.2'
+  gem 'rake',      '~> 13.2'
+end

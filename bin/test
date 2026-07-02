@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Full test suite against an ephemeral Postgres. Run inside `nix develop`
+# (needs initdb/pg_ctl from the dev shell). Without a database you can still
+# run `bundle exec rake test` — DB-backed tests skip.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+PORT="${TEST_PG_PORT:-54329}"
+TMP="$(mktemp -d)"
+trap 'pg_ctl -D "$TMP/pg" stop -m immediate >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
+
+initdb -D "$TMP/pg" -A trust -U postgres >/dev/null
+printf "unix_socket_directories = ''\nlisten_addresses = '127.0.0.1'\nport = %s\n" "$PORT" \
+  >> "$TMP/pg/postgresql.conf"
+pg_ctl -D "$TMP/pg" -l "$TMP/pg.log" start >/dev/null
+createdb -h 127.0.0.1 -p "$PORT" -U postgres asxpio_test
+
+TEST_DATABASE_URL="postgres://postgres@127.0.0.1:$PORT/asxpio_test" \
+  bundle exec rake test "$@"
