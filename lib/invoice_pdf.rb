@@ -2,6 +2,7 @@ require 'prawn'
 require 'prawn/table'
 require 'bigdecimal'
 require 'stringio'
+require_relative 'fmt'
 
 class InvoicePdf
   FONTS_DIR = File.join($root, 'public', 'fonts')
@@ -333,18 +334,11 @@ class InvoicePdf
   end
 
   def fmt_ltc(value)
-    BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\\1').sub(/\.$/, '')
+    Fmt.ltc(value)
   end
 
-  # Exchange rate: keep full captured precision (up to 8 dp), trim trailing
-  # zeros, but pad to at least `min_dp` so it reads as a rate. GEL/USD rates are
-  # quoted to 4 dp by the NBG, so the default min is 4.
   def fmt_rate(value, min_dp: 4)
-    s = BigDecimal(value.to_s).round(8).to_s('F')
-    int, frac = s.split('.')
-    frac = (frac || '').sub(/0+$/, '')
-    frac = frac.ljust(min_dp, '0')
-    "#{with_thousands("#{int}.00").split('.').first}.#{frac}"
+    Fmt.rate(value, min_dp: min_dp)
   end
 
   def fmt_qty(value)
@@ -354,7 +348,7 @@ class InvoicePdf
 
   def with_thousands(numstr)
     int, frac = numstr.split('.')
-    int = int.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+    int = Fmt.group(int)
     frac ? "#{int}.#{frac.ljust(2, '0')[0, 2]}" : "#{int}.00"
   end
 end

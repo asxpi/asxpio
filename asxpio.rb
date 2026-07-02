@@ -17,6 +17,7 @@ $root   = __dir__
 $logger = Logger.new($stdout)
 $env    = ENV.fetch('RACK_ENV', 'development')
 
+require_relative 'lib/fmt'
 require_relative 'lib/mailer'
 require_relative 'lib/rate_limit'
 require_relative 'lib/db'
@@ -73,18 +74,12 @@ class AsxpioWeb < Sinatra::Base
         request.ip
     end
 
-    # Exchange rate for display: full captured precision (up to 8 dp), trailing
-    # zeros trimmed, padded to at least min_dp. Mirrors InvoicePdf#fmt_rate so
-    # the HTML and PDF agree. (4 dp matches the NBG's GEL quoting.)
     def fmt_rate(value, min_dp = 4)
-      frac = BigDecimal(value.to_s).round(8).to_s('F').split('.').last.sub(/0+$/, '')
-      whole = BigDecimal(value.to_s).to_i
-      "#{whole}.#{frac.ljust(min_dp, '0')}"
+      Fmt.rate(value, min_dp: min_dp)
     end
 
-    # LTC amount: up to 8 dp, trailing zeros trimmed, no padding.
     def fmt_ltc(value)
-      BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\1').sub(/\.$/, '')
+      Fmt.ltc(value)
     end
   end
 
