@@ -43,7 +43,11 @@ class AsxpioWeb < Sinatra::Base
     set :root, $root
     set :erb, layout: :layout, escape_html: true
     set :show_exceptions, $env == 'development'
-    set :host_authorization, { permitted_hosts: [] }
+    # Traefik only routes our hostnames anyway; this is defense in depth.
+    # 127.0.0.1 is the Docker HEALTHCHECK. Empty list (= check disabled)
+    # outside production so dev and rack-test hosts keep working.
+    set :host_authorization,
+        { permitted_hosts: $env == 'production' ? ['asxp.io', 'www.asxp.io', '127.0.0.1'] : [] }
   end
 
   use Rack::Session::Cookie,
