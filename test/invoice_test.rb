@@ -55,25 +55,38 @@ class InvoiceTest < Minitest::Test
     assert_equal BigDecimal('201'), saved.total
     assert_equal BigDecimal('613.05'), saved.total_gel
     assert_equal 'pending', saved.status
-    refute saved.ltc?
+    refute saved.crypto?
   end
 
-  def test_build_derives_ltc_amount_from_rate
+  def test_build_derives_crypto_amount_from_rate
     inv = Invoice.build(
       client_name: 'ACME', client_email: 'billing@example.com',
       currency: 'EUR', gel_rate: '3.05',
       items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }],
-      ltc_address: 'ltc1qexampleexampleexampleexample', ltc_rate: '80', ltc_amount: ''
+      crypto_coin: 'ltc', crypto_address: 'ltc1qexampleexampleexampleexample',
+      crypto_rate: '80', crypto_amount: ''
     )
-    assert inv.ltc?
-    assert_equal BigDecimal('1.25'), inv.ltc_amount_due
+    assert inv.crypto?
+    assert_equal 'LTC', inv.crypto_coin
+    assert_equal BigDecimal('1.25'), inv.crypto_amount_due
+  end
+
+  def test_build_rejects_unknown_coin
+    assert_raises(ArgumentError) do
+      Invoice.build(
+        client_name: 'ACME', client_email: 'billing@example.com',
+        currency: 'EUR', gel_rate: '3.05',
+        items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }],
+        crypto_coin: 'DOGE', crypto_address: 'D6examplexampleexampleexample'
+      )
+    end
   end
 end
 
 class InvoiceValidationTest < Minitest::Test
   BASE = {
     client_name: 'ACME', client_email: 'billing@example.com', currency: 'EUR',
-    gel_rate: '3.05', ltc_address: '', ltc_rate: '', ltc_amount: '',
+    gel_rate: '3.05', crypto_coin: 'LTC', crypto_address: '', crypto_rate: '', crypto_amount: '',
     items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }]
   }.freeze
 
@@ -109,7 +122,17 @@ class InvoiceValidationTest < Minitest::Test
     assert_includes validate(items: [{ 'description' => '', 'qty' => '1', 'unit_price' => '1' }]), :items
   end
 
-  def test_ltc_address_format
-    assert_includes validate(ltc_address: 'not-an-address'), :ltc_address
+  def test_crypto_address_format
+    assert_includes validate(crypto_address: 'not!an@address'), :crypto_address
+  end
+
+  def test_crypto_unknown_coin_rejected
+    v = validate(crypto_coin: 'DOGE', crypto_address: 'D6exampleexampleexampleexample')
+    assert_includes v, :crypto_coin
+  end
+
+  def test_crypto_valid_asset_passes
+    v = validate(crypto_coin: 'USDT-TRC20', crypto_address: 'TXYZexampleexampleexampleexample12')
+    assert_empty v
   end
 end

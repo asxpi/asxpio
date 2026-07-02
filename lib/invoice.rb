@@ -2,6 +2,7 @@ require 'sequel'
 require 'securerandom'
 require 'json'
 require 'bigdecimal'
+require_relative 'crypto_asset'
 
 class Invoice < Sequel::Model(:invoices)
   CURRENCIES = %w[USD EUR GEL].freeze
@@ -46,17 +47,17 @@ class Invoice < Sequel::Model(:invoices)
     (total * BigDecimal(gel_rate.to_s)).round(2)
   end
 
-  def ltc?
-    !ltc_address.to_s.strip.empty?
+  def crypto?
+    !crypto_address.to_s.strip.empty?
   end
 
-  # The LTC amount to display / encode in the QR. Returns nil when no amount
-  # is known (address-only invoice).
-  def ltc_amount_due
-    return nil unless ltc?
-    return BigDecimal(ltc_amount.to_s) unless ltc_amount.nil?
-    return nil if ltc_rate.nil? || BigDecimal(ltc_rate.to_s).zero?
-    (total / BigDecimal(ltc_rate.to_s)).round(8)
+  # The crypto amount to display / encode in the QR. Returns nil when no
+  # amount is known (address-only invoice).
+  def crypto_amount_due
+    return nil unless crypto?
+    return BigDecimal(crypto_amount.to_s) unless crypto_amount.nil?
+    return nil if crypto_rate.nil? || BigDecimal(crypto_rate.to_s).zero?
+    (total / BigDecimal(crypto_rate.to_s)).round(8)
   end
 
   class << self
@@ -89,27 +90,32 @@ class Invoice < Sequel::Model(:invoices)
         pdf_key:        '',
         created_at:     Time.now.utc
       )
-      apply_ltc(invoice, params, subtotal)
+      apply_crypto(invoice, params, subtotal)
       invoice.uuid = SecureRandom.uuid
       invoice
     end
 
     private
 
-    # LTC is opt-in: only populated when an address is given. Rate and amount
-    # are both optional; if amount is blank but rate is present, derive it.
-    def apply_ltc(invoice, params, subtotal)
-      address = params[:ltc_address].to_s.strip
+    # Crypto is opt-in: only populated when an address is given. Rate and
+    # amount are both optional; if amount is blank but rate is present,
+    # derive it.
+    def apply_crypto(invoice, params, subtotal)
+      address = params[:crypto_address].to_s.strip
       return if address.empty?
 
-      invoice.ltc_address = address
+      coin = params[:crypto_coin].to_s.upcase
+      CryptoAsset.valid?(coin) or raise ArgumentError, "Unknown coin: #{coin}"
 
-      rate = decimal_or_nil(params[:ltc_rate])
-      invoice.ltc_rate = rate
+      invoice.crypto_coin = coin
+      invoice.crypto_address = address
 
-      amount = decimal_or_nil(params[:ltc_amount])
+      rate = decimal_or_nil(params[:crypto_rate])
+      invoice.crypto_rate = rate
+
+      amount = decimal_or_nil(params[:crypto_amount])
       amount ||= (subtotal / rate).round(8) if rate && !rate.zero?
-      invoice.ltc_amount = amount
+      invoice.crypto_amount = amount
     end
 
     def decimal_or_nil(raw)

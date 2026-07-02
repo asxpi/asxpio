@@ -36,14 +36,39 @@
         reindex();
     });
 
-    // --- Litecoin: live rate fetch + auto amount ------------------------
-    const rateInput = document.getElementById('ltc_rate');
-    const amountInput = document.getElementById('ltc_amount');
-    const fetchBtn = document.getElementById('fetch-ltc-rate');
-    const rateStatus = document.getElementById('ltc-rate-status');
-    const rateCcy = document.getElementById('ltc-rate-ccy');
+    // --- Crypto: coin select, live rate fetch + auto amount -------------
+    const coinSel = document.getElementById('crypto_coin');
+    const addressInput = document.getElementById('crypto_address');
+    const rateInput = document.getElementById('crypto_rate');
+    const amountInput = document.getElementById('crypto_amount');
+    const fetchBtn = document.getElementById('fetch-crypto-rate');
+    const rateStatus = document.getElementById('crypto-rate-status');
+    const rateCcy = document.getElementById('crypto-rate-ccy');
+    const rateCoin = document.getElementById('crypto-rate-coin');
     const currencySel = document.getElementById('currency');
     const gelRateInput = document.getElementById('gel_rate');
+
+    // Default payout addresses per coin, rendered server-side from env.
+    let cryptoDefaults = {};
+    const defaultsEl = document.getElementById('crypto-defaults');
+    if (defaultsEl) {
+        try { cryptoDefaults = JSON.parse(defaultsEl.textContent); } catch (e) { /* leave empty */ }
+    }
+
+    // On coin change: swap in the new coin's default address, but never
+    // clobber a hand-entered one (only replace blank or known defaults).
+    if (coinSel && addressInput) {
+        coinSel.addEventListener('change', function () {
+            const val = addressInput.value.trim();
+            const isDefault = val === '' || Object.values(cryptoDefaults).indexOf(val) !== -1;
+            if (isDefault) addressInput.value = cryptoDefaults[coinSel.value] || '';
+            rateInput.value = '';
+            if (amountInput) amountInput.value = '';
+            amountTouched = false;
+            rateStatus.textContent = '';
+            syncCcyLabel();
+        });
+    }
 
     function invoiceTotal() {
         let total = 0;
@@ -74,6 +99,7 @@
         const ccy = currencySel ? currencySel.value : 'USD';
         if (rateCcy) rateCcy.textContent = ccy;
         if (gelRateCcy) gelRateCcy.textContent = ccy;
+        if (rateCoin && coinSel) rateCoin.textContent = coinSel.value;
     }
     syncCcyLabel();
     if (currencySel) currencySel.addEventListener('change', syncCcyLabel);
@@ -84,10 +110,11 @@
     if (fetchBtn) {
         fetchBtn.addEventListener('click', function () {
             const ccy = currencySel ? currencySel.value : 'USD';
-            const params = new URLSearchParams({ currency: ccy });
+            const coin = coinSel ? coinSel.value : 'LTC';
+            const params = new URLSearchParams({ coin: coin, currency: ccy });
             if (gelRateInput && gelRateInput.value) params.set('gel_rate', gelRateInput.value);
             rateStatus.textContent = ' fetching…';
-            fetch('/admin/ltc-rate?' + params.toString(), { headers: { Accept: 'application/json' } })
+            fetch('/admin/crypto-rate?' + params.toString(), { headers: { Accept: 'application/json' } })
                 .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
                 .then(({ ok, j }) => {
                     if (!ok) { rateStatus.textContent = ' ' + (j.error || 'failed'); return; }

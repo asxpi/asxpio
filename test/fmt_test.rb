@@ -14,9 +14,9 @@ class FmtTest < Minitest::Test
     assert_equal '1,050.2500', Fmt.rate('1050.25')
   end
 
-  def test_ltc_trims_trailing_zeros
-    assert_equal '1.25', Fmt.ltc('1.250000')
-    assert_equal '2', Fmt.ltc('2.0')
-    assert_equal '0.00123456', Fmt.ltc('0.00123456')
+  def test_crypto_trims_trailing_zeros
+    assert_equal '1.25', Fmt.crypto('1.250000')
+    assert_equal '2', Fmt.crypto('2.0')
+    assert_equal '0.00123456', Fmt.crypto('0.00123456')
   end
 end

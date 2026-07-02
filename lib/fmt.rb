@@ -13,8 +13,8 @@ module Fmt
     "#{group(int)}.#{frac}"
   end
 
-  # LTC amount: up to 8 dp, trailing zeros trimmed, no padding.
-  def ltc(value)
+  # Crypto amount: up to 8 dp, trailing zeros trimmed, no padding.
+  def crypto(value)
     BigDecimal(value.to_s).round(8).to_s('F').sub(/(\.\d*?)0+$/, '\1').sub(/\.$/, '')
   end
 

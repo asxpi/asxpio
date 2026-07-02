@@ -12,8 +12,8 @@
         <% unless @invoice.currency == 'GEL' %>
             <dt>In GEL</dt><dd class="mono">GEL <%= '%.2f' % @invoice.total_gel %> <span class="optional">@ <%= fmt_rate(@invoice.gel_rate) %></span></dd>
         <% end %>
-        <% if @invoice.ltc? && (ltc = @invoice.ltc_amount_due) %>
-            <dt>In LTC</dt><dd class="mono"><%= fmt_ltc(ltc) %> LTC<% if @invoice.ltc_rate %> <span class="optional">@ <%= fmt_rate(@invoice.ltc_rate) %> <%= @invoice.currency %></span><% end %></dd>
+        <% if @invoice.crypto? && (amt = @invoice.crypto_amount_due) %>
+            <dt>In <%= @invoice.crypto_coin %></dt><dd class="mono"><%= fmt_crypto(amt) %> <%= @invoice.crypto_coin %><% if @invoice.crypto_rate %> <span class="optional">@ <%= fmt_rate(@invoice.crypto_rate) %> <%= @invoice.currency %></span><% end %></dd>
         <% end %>
         <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span></dd>
     </dl>

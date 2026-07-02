@@ -29,8 +29,9 @@ if ENV['DATABASE_URL']
   DB.connect!
   DB.migrate!
   require_relative 'lib/invoice'
-  require_relative 'lib/ltc_rate'
-  require_relative 'lib/ltc_qr'
+  require_relative 'lib/crypto_asset'
+  require_relative 'lib/crypto_rate'
+  require_relative 'lib/crypto_qr'
   require_relative 'lib/gel_rate'
   require_relative 'lib/invoice_pdf'
 else
@@ -78,8 +79,8 @@ class AsxpioWeb < Sinatra::Base
       Fmt.rate(value, min_dp: min_dp)
     end
 
-    def fmt_ltc(value)
-      Fmt.ltc(value)
+    def fmt_crypto(value)
+      Fmt.crypto(value)
     end
   end
 
@@ -182,16 +183,18 @@ class AsxpioWeb < Sinatra::Base
     erb :'admin/invoices/index'
   end
 
-  # Live LTC price for the new-invoice form's "Fetch live" button.
-  # GEL is derived from the gel_rate the operator typed into the form.
-  get '/admin/ltc-rate' do
+  # Live price of the selected crypto asset for the new-invoice form's
+  # "Fetch live" button. GEL is derived from the gel_rate the operator typed
+  # into the form.
+  get '/admin/crypto-rate' do
     content_type :json
+    coin     = params[:coin].to_s.upcase
     currency = params[:currency].to_s.upcase
     gel_rate = params[:gel_rate].to_s.strip
     begin
-      rate = LtcRate.fetch(currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
-      { rate: rate.round(8).to_s('F'), currency: currency }.to_json
-    rescue LtcRate::Error => e
+      rate = CryptoRate.fetch(coin, currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
+      { rate: rate.round(8).to_s('F'), coin: coin, currency: currency }.to_json
+    rescue CryptoRate::Error => e
       status 502
       { error: e.message }.to_json
     end
@@ -249,7 +252,8 @@ class AsxpioWeb < Sinatra::Base
       issued_on:      Date.today.strftime('%Y-%m-%d'),
       due_on:         (Date.today + term).strftime('%Y-%m-%d'),
       notes:          src.notes,
-      ltc_address:    src.ltc_address,
+      crypto_coin:    src.crypto_coin,
+      crypto_address: src.crypto_address,
       items:          src.items_array
     }
     erb :'admin/invoices/new'
@@ -265,9 +269,10 @@ class AsxpioWeb < Sinatra::Base
       issued_on:      params[:issued_on].to_s.strip,
       due_on:         params[:due_on].to_s.strip,
       notes:          params[:notes].to_s.strip,
-      ltc_address:    params[:ltc_address].to_s.strip,
-      ltc_rate:       params[:ltc_rate].to_s.strip,
-      ltc_amount:     params[:ltc_amount].to_s.strip,
+      crypto_coin:    params[:crypto_coin].to_s.upcase,
+      crypto_address: params[:crypto_address].to_s.strip,
+      crypto_rate:    params[:crypto_rate].to_s.strip,
+      crypto_amount:  params[:crypto_amount].to_s.strip,
       items:          (params[:items] || {}).values
     }
     @form_errors = validate_invoice_params(@form_values)
@@ -375,10 +380,12 @@ class AsxpioWeb < Sinatra::Base
       end
       v[:items] = items
 
-      # LTC is optional; validate only when an address is present.
-      unless v[:ltc_address].to_s.strip.empty?
-        errors[:ltc_address] = 'LTC address looks invalid' unless v[:ltc_address] =~ /\A(ltc1|[LM3])[a-zA-HJ-NP-Z0-9]{20,90}\z/
-        %i[ltc_rate ltc_amount].each do |k|
+      # Crypto is optional; validate only when an address is present.
+      unless v[:crypto_address].to_s.strip.empty?
+        errors[:crypto_coin] = 'Unknown coin' unless CryptoAsset.valid?(v[:crypto_coin])
+        # Loose shape check: every supported chain's addresses are alphanumeric.
+        errors[:crypto_address] = 'Address looks invalid' unless v[:crypto_address] =~ /\A[a-zA-Z0-9]{10,128}\z/
+        %i[crypto_rate crypto_amount].each do |k|
           next if v[k].to_s.strip.empty?
           begin
             raise ArgumentError if BigDecimal(v[k]) <= 0

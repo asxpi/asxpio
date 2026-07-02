@@ -109,11 +109,12 @@ jobs:
           ASXPIO_S3_ACCESS_KEY: ${{ secrets.ASXPIO_S3_ACCESS_KEY }}
           ASXPIO_S3_SECRET_KEY: ${{ secrets.ASXPIO_S3_SECRET_KEY }}
           LTC_ADDRESS: ${{ secrets.LTC_ADDRESS }}
+          CRYPTO_ADDRESSES: ${{ secrets.CRYPTO_ADDRESSES }}
         with:
           host: ${{ secrets.DEPLOY_IP }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: SESSION_SECRET,SMTP_PASSWORD,ADMIN_USER,ADMIN_PASSWORD,ASXPIO_DB_PASSWORD,ASXPIO_S3_ACCESS_KEY,ASXPIO_S3_SECRET_KEY,LTC_ADDRESS
+          envs: SESSION_SECRET,SMTP_PASSWORD,ADMIN_USER,ADMIN_PASSWORD,ASXPIO_DB_PASSWORD,ASXPIO_S3_ACCESS_KEY,ASXPIO_S3_SECRET_KEY,LTC_ADDRESS,CRYPTO_ADDRESSES
           script_stop: true
           script: |
             umask 077
@@ -137,6 +138,7 @@ jobs:
             S3_ACCESS_KEY=${ASXPIO_S3_ACCESS_KEY}
             S3_SECRET_KEY=${ASXPIO_S3_SECRET_KEY}
             LTC_ADDRESS=${LTC_ADDRESS}
+            CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
             EOF
             chmod 600 /opt/asxpio/.env
 

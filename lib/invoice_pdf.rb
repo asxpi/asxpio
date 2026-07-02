@@ -3,6 +3,8 @@ require 'prawn/table'
 require 'bigdecimal'
 require 'stringio'
 require_relative 'fmt'
+require_relative 'crypto_asset'
+require_relative 'crypto_qr'
 
 class InvoicePdf
   FONTS_DIR = File.join($root, 'public', 'fonts')
@@ -246,7 +248,7 @@ class InvoicePdf
       pdf.text "Beneficiary: #{ISSUER[:name_latin]}"
     end
 
-    draw_ltc(pdf) if @invoice.respond_to?(:ltc?) && @invoice.ltc?
+    draw_crypto(pdf) if @invoice.respond_to?(:crypto?) && @invoice.crypto?
 
     unless @invoice.notes.to_s.strip.empty?
       pdf.move_down 14
@@ -258,20 +260,22 @@ class InvoicePdf
     end
   end
 
-  def draw_ltc(pdf)
-    amount  = @invoice.ltc_amount_due
+  def draw_crypto(pdf)
+    coin    = @invoice.crypto_coin
+    asset   = CryptoAsset[coin] || {}
+    amount  = @invoice.crypto_amount_due
     qr_size = 78
 
     pdf.move_down 12
     pdf.fill_color COLOR_MUTED
-    pdf.font_size(8) { pdf.text 'PAY IN LITECOIN (LTC)', character_spacing: 1.5 }
+    pdf.font_size(8) { pdf.text "PAY IN #{CryptoAsset.name(coin).upcase} (#{coin})", character_spacing: 1.5 }
     pdf.fill_color COLOR_TEXT
     pdf.move_down 4
 
     # Fixed-height row: QR on the right (drawn with float so it doesn't advance
     # the cursor), text column on the left. The outer bounding_box of height
     # qr_size leaves the cursor exactly below the row when it ends.
-    qr_bytes = LtcQr.png(@invoice.ltc_address, amount)
+    qr_bytes = CryptoQr.png(coin, @invoice.crypto_address, amount)
     pdf.bounding_box([0, pdf.cursor], width: pdf.bounds.width, height: qr_size) do
       pdf.float do
         pdf.bounding_box([pdf.bounds.right - qr_size, pdf.bounds.top], width: qr_size, height: qr_size) do
@@ -282,19 +286,24 @@ class InvoicePdf
       pdf.bounding_box([0, pdf.bounds.top], width: pdf.bounds.width - qr_size - 16) do
         pdf.font_size(9) do
           if amount
-            pdf.text "Amount: #{fmt_ltc(amount)} LTC", style: :bold
-            if @invoice.ltc_rate
+            pdf.text "Amount: #{fmt_crypto(amount)} #{coin}", style: :bold
+            if @invoice.crypto_rate
               pdf.fill_color COLOR_MUTED
-              pdf.text "(rate 1 LTC = #{fmt_rate(@invoice.ltc_rate)} #{@invoice.currency} at issue)", size: 8
+              pdf.text "(rate 1 #{coin} = #{fmt_rate(@invoice.crypto_rate)} #{@invoice.currency} at issue)", size: 8
               pdf.fill_color COLOR_TEXT
             end
             pdf.move_down 3
           end
           pdf.text 'Address:'
-          pdf.font_size(8) { pdf.text @invoice.ltc_address }
+          pdf.font_size(8) { pdf.text @invoice.crypto_address }
           pdf.move_down 3
           pdf.fill_color COLOR_MUTED
-          pdf.font_size(7) { pdf.text 'Scan the QR with any Litecoin wallet to prefill the payment.' }
+          hint = if asset[:amount_param]
+                   "Scan the QR with any #{CryptoAsset.name(coin)} wallet to prefill the payment."
+                 else
+                   "QR encodes the address. Send #{coin} only — verify the network before sending."
+                 end
+          pdf.font_size(7) { pdf.text hint }
           pdf.fill_color COLOR_TEXT
         end
       end
@@ -333,8 +342,8 @@ class InvoicePdf
     BigDecimal(value.to_s).round(2).to_s('F').then { |s| with_thousands(s) }
   end
 
-  def fmt_ltc(value)
-    Fmt.ltc(value)
+  def fmt_crypto(value)
+    Fmt.crypto(value)
   end
 
   def fmt_rate(value, min_dp: 4)

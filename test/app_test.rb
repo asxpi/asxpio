@@ -113,7 +113,7 @@ class AppTest < Minitest::Test
       client_name: 'ACME', client_email: 'billing@example.com', client_address: '',
       currency: 'EUR', gel_rate: '3.05',
       issued_on: Date.today.to_s, due_on: (Date.today + 14).to_s, notes: '',
-      ltc_address: '', ltc_rate: '', ltc_amount: '',
+      crypto_coin: 'LTC', crypto_address: '', crypto_rate: '', crypto_amount: '',
       items: { '0' => { 'description' => 'Engineering — test', 'qty' => '2', 'unit_price' => '100.50' } } }
   end
 
@@ -129,6 +129,22 @@ class AppTest < Minitest::Test
     assert_equal BigDecimal('201'), invoice.total
     assert_equal "invoices/#{invoice.number}-#{invoice.uuid}.pdf", invoice.pdf_key
     assert_match %r{/admin/invoices/#{invoice.uuid}}, last_response.location
+  end
+
+  def test_create_invoice_with_crypto
+    skip 'TEST_DATABASE_URL not set' unless TestDb.available?
+    token = csrf_token_from('/admin/invoices/new', admin_env)
+
+    params = invoice_form_params(token).merge(
+      crypto_coin: 'USDT-TRC20', crypto_address: 'TXYZexampleexampleexampleexample12',
+      crypto_rate: '1.00', crypto_amount: ''
+    )
+    post '/admin/invoices', params, admin_env
+    assert_equal 302, last_response.status, last_response.body
+
+    invoice = Invoice.first
+    assert_equal 'USDT-TRC20', invoice.crypto_coin
+    assert_equal BigDecimal('201'), invoice.crypto_amount_due
   end
 
   def test_create_invoice_validation_failure_rerenders_form
