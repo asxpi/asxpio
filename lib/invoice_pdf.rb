@@ -18,7 +18,7 @@ class InvoicePdf
       'Ilia and Nino Nakashidze St, N 1, Building N3, Apt N3',
       'Krtsanisi, Tbilisi, Georgia'
     ],
-    email:         'me@asxp.io',
+    email:         'ie@asxp.io',
     phone:         '+995 595 026 471',
     bank_name:     'Bank of Georgia',
     iban:          'GE53BG0000000612343299',
