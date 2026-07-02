@@ -1,9 +1,11 @@
 name: Tests
 
+# main is covered by the test job inside deploy.yaml (which gates the build);
+# this workflow covers every other branch.
 on:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - main
 
 jobs:
   test:

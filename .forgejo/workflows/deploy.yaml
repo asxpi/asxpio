@@ -6,8 +6,44 @@ on:
       - main
 
 jobs:
+  # Same job as in test.yaml (which covers non-main branches); duplicated here
+  # so a red suite blocks the build+deploy — Forgejo has no cross-workflow needs.
+  test:
+    runs-on: nix-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: asxpio_test
+    steps:
+      - name: Prepare container for actions
+        run: |
+          echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+          # node for JS actions (checkout); git-minimal is already in the image
+          nix-env -iA nixpkgs.nodejs_22
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            nix develop -c pg_isready -h postgres -U postgres && exit 0
+            sleep 2
+          done
+          echo "Postgres service never became ready" >&2
+          exit 1
+
+      - name: Run test suite
+        env:
+          TEST_DATABASE_URL: postgres://postgres@postgres:5432/asxpio_test
+        run: nix develop -c bundle exec rake test
+
   build:
     runs-on: arch-latest
+    needs: test
     container:
       image: gcr.io/kaniko-project/executor:debug
     outputs:
@@ -115,7 +151,16 @@ jobs:
             docker pull $NEW_IMAGE
             docker compose up -d
 
-            sleep 5
-            docker ps | grep asxpio || exit 1
-
-            echo "Deployment successful!"
+            # Wait for the image HEALTHCHECK (GET /healthz) to report healthy;
+            # `docker ps | grep` passed even while the app crash-looped.
+            for i in $(seq 1 18); do
+              status=$(docker inspect --format '{{.State.Health.Status}}' asxpio 2>/dev/null || echo missing)
+              if [ "$status" = "healthy" ]; then
+                echo "Deployment successful!"
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "asxpio never became healthy (last status: $status)" >&2
+            docker logs --tail 50 asxpio
+            exit 1

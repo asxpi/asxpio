@@ -84,6 +84,7 @@ Public:
 
 - `GET /i/:uuid` — landing page: client name, number, total, status badge, download button.
 - `GET /i/:uuid/pdf` — 302 to a 5-minute MinIO presigned URL (Content-Disposition: attachment).
+- `GET /healthz` — liveness (plus `SELECT 1` when invoicing is configured); used by the Docker HEALTHCHECK and the deploy pipeline's post-deploy wait.
 
 ### Storage model
 
@@ -138,10 +139,11 @@ The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, t
 - **Run tests:** `nix develop -c bin/test` — full suite (minitest + rack-test) against an ephemeral Postgres it provisions and tears down itself. `bundle exec rake test` runs without a DB, skipping DB-backed tests. Mail uses `Mail::TestMailer`; S3 uses aws-sdk stubbed responses; tests never touch real services, and `.env` is deliberately not loaded when `RACK_ENV=test`.
 - **Local image build (sanity check):** `docker compose build`
 - **Production deploy:** automatic via `.forgejo/workflows/deploy.yaml` on push to `main`. Pipeline:
+  0. Test suite runs on the `nix-latest` runner label (postgres service container); a red suite blocks the build. Non-main branches get the same job from `test.yaml`.
   1. Kaniko builds the image and pushes it to the Forgejo registry.
   2. SSH copies `docker-compose.yml` to the deploy directory on the prod host.
   3. SSH writes `.env` (mode 600) from Forgejo secrets. The full set of invoicing envs (`DATABASE_URL`, `S3_*`, `ADMIN_*`) is built here; the per-app `ASXPIO_DB_PASSWORD` / `ASXPIO_S3_*` values must match the storage repo's Forgejo secrets, since storage's init containers provision the corresponding role + MinIO user.
-  4. SSH `sed`-substitutes the image tag in `docker-compose.yml` and runs `docker compose up -d`.
+  4. SSH `sed`-substitutes the image tag in `docker-compose.yml`, runs `docker compose up -d`, and waits (up to 90s) for the image `HEALTHCHECK` (`GET /healthz`) to report healthy — a crash-looping container fails the deploy.
 
 ## Where the secrets live
 
