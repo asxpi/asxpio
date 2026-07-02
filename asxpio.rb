@@ -266,13 +266,25 @@ class AsxpioWeb < Sinatra::Base
       return erb :'admin/invoices/new'
     end
 
-    invoice = Invoice.build(@form_values)
-    # Base key (no suffix); the two status variants get -pending/-paid appended.
-    invoice.pdf_key = "invoices/#{invoice.number}-#{invoice.uuid}.pdf"
-    %w[pending paid].each do |st|
-      S3.put(invoice.pdf_key_for(st), InvoicePdf.render(invoice, status: st))
+    # The whole build→render→upload→save sequence retries on a duplicate
+    # number: two concurrent creates (Puma threads) can both compute MAX+1.
+    # The PDF embeds the number, so a retry must re-render, not just re-save.
+    # A losing attempt orphans its two S3 objects; harmless and near-impossible
+    # with a single operator.
+    attempts = 0
+    begin
+      invoice = Invoice.build(@form_values)
+      # Base key (no suffix); the two status variants get -pending/-paid appended.
+      invoice.pdf_key = "invoices/#{invoice.number}-#{invoice.uuid}.pdf"
+      %w[pending paid].each do |st|
+        S3.put(invoice.pdf_key_for(st), InvoicePdf.render(invoice, status: st))
+      end
+      invoice.save_changes
+    rescue Sequel::UniqueConstraintViolation
+      attempts += 1
+      raise if attempts > 2
+      retry
     end
-    invoice.save_changes
 
     redirect "/admin/invoices/#{invoice.uuid}"
   end

@@ -60,13 +60,14 @@ class Invoice < Sequel::Model(:invoices)
   end
 
   class << self
+    # Max is taken over the numeric suffix, not the string: past 9999 the
+    # 5-digit numbers would sort below INV-YYYY-9999 lexically and the
+    # allocator would hand out duplicates.
     def allocate_number(year = Date.today.year)
       prefix = "INV-#{year}-"
       last   = where(Sequel.like(:number, "#{prefix}%"))
-                 .order(Sequel.desc(:number))
-                 .get(:number)
-      n = last ? last.split('-').last.to_i + 1 : 1
-      format("#{prefix}%04d", n)
+                 .max(Sequel.cast(Sequel.function(:split_part, :number, '-', 3), Integer))
+      format("#{prefix}%04d", (last || 0) + 1)
     end
 
     def build(params)

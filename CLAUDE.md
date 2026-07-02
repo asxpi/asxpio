@@ -105,7 +105,7 @@ Admin pages use a shared dark palette extended in `public/style.css` (search for
 
 ### Caveats
 
-- The `INV-{YYYY}-{NNNN}` allocator is `SELECT MAX(...) + 1`. Single-process deploy means no contention; if Puma ever runs multiple workers or we add a second container, switch to a DB-side sequence per year.
+- The `INV-{YYYY}-{NNNN}` allocator is `SELECT MAX(...) + 1` over the numeric suffix. Concurrent creates (Puma threads) that collide on the unique constraint are retried — the whole build→render→upload→save sequence, since the PDF embeds the number; a losing attempt orphans its two S3 objects. If we ever add a second container, switch to a DB-side sequence per year.
 - Anyone with the UUID can fetch the PDF. UUIDs are 122-bit random so not enumerable, but they aren't access-controlled. If a stronger gate is ever needed (email confirmation, expiry on paid, etc.) it goes in the `/i/:uuid` and `/i/:uuid/pdf` handlers.
 - The MinIO bucket is **private**; only the app's scoped service account can put/get. Presigned URLs use `S3_PUBLIC_ENDPOINT=https://s3.asxp.io` so the signed host matches what the browser fetches.
 
