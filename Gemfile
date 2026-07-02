@@ -19,6 +19,9 @@ gem 'prawn-table',     '~> 0.2'
 gem 'rqrcode',         '~> 2.2'
 gem 'chunky_png',      '~> 1.4'
 gem 'aws-sdk-s3',      '~> 1.170'
+# aws-sdk-core needs an XML parser; rexml stopped being a default gem in
+# Ruby 3.4, so it must be declared or S3 calls raise at first use.
+gem 'rexml',           '~> 3.4'
 
 group :development do
   gem 'rerun', '~> 0.14'
