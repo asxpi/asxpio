@@ -2,6 +2,16 @@
     const tbody = document.querySelector('#items-table tbody');
     const addBtn = document.getElementById('add-row');
 
+    // PDF render + two S3 uploads make create slow enough to double-click,
+    // which would mint two invoices with consecutive numbers.
+    const form = document.querySelector('form.invoice-form');
+    if (form) {
+        form.addEventListener('submit', function () {
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+        });
+    }
+
     function reindex() {
         Array.from(tbody.querySelectorAll('tr.item-row')).forEach((row, i) => {
             row.querySelectorAll('input').forEach((input) => {
