@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    runs-on: nix-latest
+    services:
+      # CI stand-in for bin/test's ephemeral Postgres: the nix container runs
+      # as root and initdb refuses to run as root, so the DB lives in a
+      # service container instead and the suite connects via TEST_DATABASE_URL.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: asxpio_test
+    steps:
+      - name: Prepare container for actions
+        run: |
+          echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+          nix-env -iA nixpkgs.nodejs_22 nixpkgs.git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            nix develop -c pg_isready -h postgres -U postgres && exit 0
+            sleep 2
+          done
+          echo "Postgres service never became ready" >&2
+          exit 1
+
+      - name: Run test suite
+        env:
+          TEST_DATABASE_URL: postgres://postgres@postgres:5432/asxpio_test
+        run: nix develop -c bundle exec rake test
