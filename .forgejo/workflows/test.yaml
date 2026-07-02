@@ -25,7 +25,8 @@ jobs:
       - name: Prepare container for actions
         run: |
           echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-          nix-env -iA nixpkgs.nodejs_22 nixpkgs.git
+          # node for JS actions (checkout); git-minimal is already in the image
+          nix-env -iA nixpkgs.nodejs_22
 
       - name: Checkout
         uses: actions/checkout@v4
