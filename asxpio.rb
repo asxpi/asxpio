@@ -143,6 +143,18 @@ class AsxpioWeb < Sinatra::Base
     redirect '/thanks'
   end
 
+  # Liveness for the Docker HEALTHCHECK and the deploy pipeline. Pings the DB
+  # when invoicing is configured — a wedged connection pool should read as
+  # unhealthy, not just "process exists".
+  get '/healthz' do
+    begin
+      DB.connection['SELECT 1'].get if defined?(Invoice)
+    rescue Sequel::Error
+      halt 503, 'db unreachable'
+    end
+    'ok'
+  end
+
   get '/thanks' do
     @page_title = 'Thanks — IE Sergei Poljanski'
     @page_desc  = 'Your message has been received. A confirmation copy has been sent to your inbox.'

@@ -40,6 +40,12 @@ class AppTest < Minitest::Test
     assert last_response.ok?
   end
 
+  def test_healthz
+    get '/healthz'
+    assert last_response.ok?
+    assert_equal 'ok', last_response.body
+  end
+
   # --- contact form ---------------------------------------------------------
 
   def contact_params(over = {})
