@@ -1,7 +1,87 @@
+/* Self-hosted fonts (no CDN). Latin subsets; Georgian falls back to the
+   vendored Noto, downloaded only when Georgian glyphs are on the page. */
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src: url('/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src: url('/fonts/ibm-plex-sans-latin-400-italic.woff2') format('woff2');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src: url('/fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src: url('/fonts/ibm-plex-sans-latin-700-normal.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Noto Sans Georgian';
+    src: url('/fonts/NotoSansGeorgian-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+/* Design tokens — shared palette with blog.asxp.io */
+:root {
+    --bg: #121212;
+    --surface: #1A1A1A;
+    --surface-alt: #222222;
+    --surface-hover: #333333;
+    --border-subtle: #1E1E1E;
+    --border: #2A2A2A;
+    --border-strong: #3A3A3A;
+    --text: #AAAAAA;
+    --text-bright: #EEEEEE;
+    --text-strong: #DDDDDD;
+    --text-soft: #CCCCCC;
+    --text-link: #BBBBBB;
+    --text-dim: #999999;
+    --text-dimmer: #888888;
+    --text-faint: #777777;
+    --text-muted: #666666;
+    --text-ghost: #555555;
+    --text-hover: #FFFFFF;
+    --link-underline: #444444;
+    --danger: #C97070;
+    --danger-border: #4A1F1F;
+    --danger-bg: #2A1414;
+    --pending: #C9A86A;
+    --pending-border: #4A3E1F;
+    --pending-bg: #2A2414;
+    --paid: #7AB97A;
+    --paid-border: #234A23;
+    --paid-bg: #142A14;
+    --font-sans: 'IBM Plex Sans', 'Noto Sans Georgian', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+}
+
 body {
-    background-color: #121212;
-    color: #AAAAAA;
-    font-family: 'Open Sans', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
     margin: 0;
     line-height: 1.5;
 }
@@ -9,6 +89,38 @@ main {
     max-width: 720px;
     margin: 0 auto;
     padding: 40px 20px 80px;
+}
+.site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 36px;
+}
+.site-title {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    color: var(--text-bright);
+    border-bottom: none;
+}
+.site-header nav a {
+    color: var(--text-faint);
+    border-bottom: none;
+    margin-left: 18px;
+    font-size: 0.9rem;
+}
+.site-header nav a:hover,
+.site-header nav a.active,
+.site-title:hover {
+    color: var(--text-bright);
+    border-bottom: none;
+}
+.home-intro {
+    max-width: 480px;
+    margin: 0 auto;
+    text-align: center;
+    color: var(--text);
 }
 .header {
     text-align: center;
@@ -24,19 +136,19 @@ main {
 .header h1 {
     font-size: 1.8rem;
     font-weight: 600;
-    color: #EEEEEE;
+    color: var(--text-bright);
     margin: 0;
     letter-spacing: -0.01em;
 }
 .header .tagline {
     font-size: 1rem;
-    color: #999999;
+    color: var(--text-dim);
     margin: 8px 0 0;
 }
 .header .ka {
     display: block;
     font-size: 0.85rem;
-    color: #666666;
+    color: var(--text-muted);
     margin-top: 6px;
 }
 .section {
@@ -45,10 +157,10 @@ main {
 .section h2 {
     font-size: 1rem;
     font-weight: 600;
-    color: #DDDDDD;
+    color: var(--text-strong);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    border-bottom: 1px solid #2A2A2A;
+    border-bottom: 1px solid var(--border);
     padding-bottom: 6px;
     margin: 0 0 16px;
 }
@@ -57,8 +169,11 @@ ul.services {
     padding: 0;
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 24px;
+    /* Column count derives from available width — no breakpoint needed,
+       behaves at any zoom level. */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px 24px;
+    align-items: start;
 }
 ul.services li {
     padding-left: 14px;
@@ -68,7 +183,14 @@ ul.services li::before {
     content: '›';
     position: absolute;
     left: 0;
-    color: #555555;
+    color: var(--text-ghost);
+}
+.svc-tools {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
 }
 dl.kv {
     display: grid;
@@ -77,29 +199,29 @@ dl.kv {
     margin: 0;
 }
 dl.kv dt {
-    color: #777777;
+    color: var(--text-faint);
     font-size: 0.9rem;
 }
 dl.kv dd {
     margin: 0;
-    color: #CCCCCC;
+    color: var(--text-soft);
 }
 dl.kv dd.mono,
 .mono {
-    font-family: 'Hack', monospace;
+    font-family: var(--font-mono);
     font-size: 0.92rem;
 }
 .ka-note {
-    color: #666666;
+    color: var(--text-muted);
     font-size: 0.85rem;
     margin-top: 4px;
 }
 pre {
     position: relative;
-    background: #222222;
+    background: var(--surface-alt);
     padding: 10px;
     font-size: 14px;
-    font-family: 'Hack', monospace;
+    font-family: var(--font-mono);
     word-wrap: break-word;
     white-space: pre-wrap;
     border: 1px solid #020202;
@@ -119,20 +241,20 @@ pre {
     color: #000;
 }
 a {
-    color: #BBBBBB;
+    color: var(--text-link);
     text-decoration: none;
-    border-bottom: 1px dotted #444444;
+    border-bottom: 1px dotted var(--link-underline);
 }
 a:hover {
-    color: #FFFFFF;
-    border-bottom-color: #888888;
+    color: var(--text-hover);
+    border-bottom-color: var(--text-dimmer);
 }
 .footer {
     text-align: center;
-    color: #555555;
+    color: var(--text-ghost);
     font-size: 0.8rem;
     padding: 24px 20px;
-    border-top: 1px solid #1E1E1E;
+    border-top: 1px solid var(--border-subtle);
 }
 .footer-line {
     margin-bottom: 12px;
@@ -144,12 +266,12 @@ a:hover {
     align-items: center;
 }
 .footer-links a {
-    color: #555555;
+    color: var(--text-ghost);
     border-bottom: none;
     line-height: 0;
 }
 .footer-links a:hover {
-    color: #FFFFFF;
+    color: var(--text-hover);
 }
 .footer-links svg {
     display: block;
@@ -167,16 +289,21 @@ a:hover {
     overflow: hidden;
 }
 .contact-form .field {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+}
+.contact-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
 }
 .contact-form label {
     display: block;
-    color: #888888;
-    font-size: 0.85rem;
-    margin-bottom: 4px;
+    color: var(--text-dimmer);
+    font-size: 0.8rem;
+    margin-bottom: 3px;
 }
 .contact-form .optional {
-    color: #555555;
+    color: var(--text-ghost);
     font-size: 0.8rem;
 }
 .contact-form input[type="text"],
@@ -184,29 +311,29 @@ a:hover {
 .contact-form textarea {
     width: 100%;
     box-sizing: border-box;
-    background: #1A1A1A;
-    color: #DDDDDD;
-    border: 1px solid #2A2A2A;
+    background: var(--surface);
+    color: var(--text-strong);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 8px 10px;
     font-family: inherit;
     font-size: 0.95rem;
 }
 .contact-form textarea {
-    font-family: 'Hack', monospace;
+    font-family: var(--font-mono);
     font-size: 0.9rem;
     resize: vertical;
 }
 .contact-form input:focus,
 .contact-form textarea:focus {
     outline: none;
-    border-color: #555555;
-    background: #1E1E1E;
+    border-color: var(--text-ghost);
+    background: var(--border-subtle);
 }
 .contact-form button {
-    background: #2A2A2A;
-    color: #DDDDDD;
-    border: 1px solid #3A3A3A;
+    background: var(--border);
+    color: var(--text-strong);
+    border: 1px solid var(--border-strong);
     border-radius: 3px;
     padding: 8px 20px;
     font-family: inherit;
@@ -214,51 +341,72 @@ a:hover {
     cursor: pointer;
 }
 .contact-form button:hover {
-    background: #333333;
-    border-color: #555555;
+    background: var(--surface-hover);
+    border-color: var(--text-ghost);
 }
 .form-error {
     display: block;
-    color: #C97070;
+    color: var(--danger);
     font-size: 0.85rem;
     margin-top: 4px;
 }
 .form-error-base {
-    background: #2A1414;
-    border: 1px solid #4A1F1F;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
     padding: 10px;
     border-radius: 3px;
     margin-bottom: 16px;
 }
 .contact-direct {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px dashed #2A2A2A;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+}
+
+/* Keys */
+.key-block {
+    margin-bottom: 20px;
+}
+.key-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+.key-label {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+}
+.key-file {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
 }
 
 /* Demoted Legal section — visible but quiet */
 .section.legal {
     margin-top: 56px;
-    color: #888888;
+    color: var(--text-dimmer);
     font-size: 0.9rem;
 }
 .section.legal h2 {
     font-size: 0.85rem;
-    color: #888888;
-    border-bottom-color: #1E1E1E;
+    color: var(--text-dimmer);
+    border-bottom-color: var(--border-subtle);
     text-transform: none;
     letter-spacing: 0.04em;
 }
 .section.legal .legal-intro {
     margin: 0 0 14px;
-    color: #777777;
+    color: var(--text-faint);
 }
 .section.legal dl.kv dt {
-    color: #666666;
+    color: var(--text-muted);
     font-size: 0.85rem;
 }
 .section.legal dl.kv dd {
-    color: #999999;
+    color: var(--text-dim);
     font-size: 0.9rem;
 }
 
@@ -272,10 +420,10 @@ a:hover {
 .invoice-list td {
     text-align: left;
     padding: 8px 10px;
-    border-bottom: 1px solid #1E1E1E;
+    border-bottom: 1px solid var(--border-subtle);
 }
 .invoice-list th {
-    color: #777777;
+    color: var(--text-faint);
     font-weight: 600;
     font-size: 0.78rem;
     text-transform: uppercase;
@@ -298,14 +446,14 @@ a:hover {
     border: 1px solid;
 }
 .badge-pending {
-    color: #C9A86A;
-    border-color: #4A3E1F;
-    background: #2A2414;
+    color: var(--pending);
+    border-color: var(--pending-border);
+    background: var(--pending-bg);
 }
 .badge-paid {
-    color: #7AB97A;
-    border-color: #234A23;
-    background: #142A14;
+    color: var(--paid);
+    border-color: var(--paid-border);
+    background: var(--paid-bg);
 }
 .invoice-grid {
     display: grid;
@@ -324,7 +472,7 @@ a:hover {
     vertical-align: top;
 }
 .items-table th {
-    color: #777777;
+    color: var(--text-faint);
     font-weight: 600;
     font-size: 0.78rem;
     text-transform: uppercase;
@@ -337,9 +485,9 @@ a:hover {
 .items-table input {
     width: 100%;
     box-sizing: border-box;
-    background: #1A1A1A;
-    color: #DDDDDD;
-    border: 1px solid #2A2A2A;
+    background: var(--surface);
+    color: var(--text-strong);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 6px 8px;
     font-family: inherit;
@@ -347,7 +495,7 @@ a:hover {
 }
 .items-table td.num input {
     text-align: right;
-    font-family: 'Hack', monospace;
+    font-family: var(--font-mono);
 }
 .items-table td.actions {
     width: 32px;
@@ -355,21 +503,21 @@ a:hover {
 }
 .items-table .remove-row {
     background: transparent;
-    border: 1px solid #2A2A2A;
-    color: #777777;
+    border: 1px solid var(--border);
+    color: var(--text-faint);
     border-radius: 3px;
     padding: 4px 8px;
     cursor: pointer;
     line-height: 1;
 }
 .items-table .remove-row:hover {
-    color: #C97070;
-    border-color: #4A1F1F;
+    color: var(--danger);
+    border-color: var(--danger-border);
 }
 .link-button {
     background: transparent;
-    border: 1px dashed #2A2A2A;
-    color: #888888;
+    border: 1px dashed var(--border);
+    color: var(--text-dimmer);
     padding: 6px 12px;
     border-radius: 3px;
     cursor: pointer;
@@ -377,15 +525,15 @@ a:hover {
     margin-bottom: 18px;
 }
 .link-button:hover {
-    color: #DDDDDD;
-    border-color: #555555;
+    color: var(--text-strong);
+    border-color: var(--text-ghost);
 }
 .invoice-form select {
     width: 100%;
     box-sizing: border-box;
-    background: #1A1A1A;
-    color: #DDDDDD;
-    border: 1px solid #2A2A2A;
+    background: var(--surface);
+    color: var(--text-strong);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 8px 10px;
     font-family: inherit;
@@ -394,33 +542,33 @@ a:hover {
 .invoice-form input[type="date"] {
     width: 100%;
     box-sizing: border-box;
-    background: #1A1A1A;
-    color: #DDDDDD;
-    border: 1px solid #2A2A2A;
+    background: var(--surface);
+    color: var(--text-strong);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 8px 10px;
-    font-family: 'Hack', monospace;
+    font-family: var(--font-mono);
     font-size: 0.92rem;
     color-scheme: dark;
 }
 .download-button {
     display: inline-block;
-    background: #2A2A2A;
-    color: #DDDDDD;
-    border: 1px solid #3A3A3A;
+    background: var(--border);
+    color: var(--text-strong);
+    border: 1px solid var(--border-strong);
     border-radius: 3px;
     padding: 12px 32px;
     font-size: 1rem;
     text-decoration: none;
 }
 .download-button:hover {
-    background: #333333;
-    border-color: #555555;
-    color: #FFFFFF;
+    background: var(--surface-hover);
+    border-color: var(--text-ghost);
+    color: var(--text-hover);
 }
 
 @media (max-width: 560px) {
-    ul.services {
+    .contact-form .form-row {
         grid-template-columns: 1fr;
     }
     dl.kv {
