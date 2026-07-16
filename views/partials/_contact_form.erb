@@ -12,16 +12,18 @@
         <div class="form-error form-error-base"><%= errors[:base] %></div>
     <% end %>
 
-    <div class="field">
-        <label for="cf-name">Name</label>
-        <input id="cf-name" type="text" name="name" maxlength="100" required value="<%= values[:name] %>" />
-        <% if errors[:name] %><span class="form-error"><%= errors[:name] %></span><% end %>
-    </div>
+    <div class="form-row">
+        <div class="field">
+            <label for="cf-name">Name</label>
+            <input id="cf-name" type="text" name="name" maxlength="100" required value="<%= values[:name] %>" />
+            <% if errors[:name] %><span class="form-error"><%= errors[:name] %></span><% end %>
+        </div>
 
-    <div class="field">
-        <label for="cf-email">Email</label>
-        <input id="cf-email" type="email" name="email" maxlength="200" required value="<%= values[:email] %>" />
-        <% if errors[:email] %><span class="form-error"><%= errors[:email] %></span><% end %>
+        <div class="field">
+            <label for="cf-email">Email</label>
+            <input id="cf-email" type="email" name="email" maxlength="200" required value="<%= values[:email] %>" />
+            <% if errors[:email] %><span class="form-error"><%= errors[:email] %></span><% end %>
+        </div>
     </div>
 
     <div class="field">

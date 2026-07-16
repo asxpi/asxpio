@@ -59,7 +59,7 @@ class AppTest < Minitest::Test
   end
 
   def test_contact_honeypot_pretends_success_and_sends_nothing
-    token = csrf_token_from('/')
+    token = csrf_token_from('/contact')
     post '/contact', contact_params(website: 'spam', authenticity_token: token)
     assert_equal 302, last_response.status
     assert_match %r{/thanks}, last_response.location
@@ -67,14 +67,14 @@ class AppTest < Minitest::Test
   end
 
   def test_contact_invalid_email_rejected
-    token = csrf_token_from('/')
+    token = csrf_token_from('/contact')
     post '/contact', contact_params(email: 'not-an-email', authenticity_token: token)
     assert_equal 422, last_response.status
     assert_empty Mail::TestMailer.deliveries
   end
 
   def test_contact_valid_submission_sends_two_mails
-    token = csrf_token_from('/')
+    token = csrf_token_from('/contact')
     post '/contact', contact_params(authenticity_token: token),
          'HTTP_X_FORWARDED_FOR' => fresh_ip
     assert_equal 302, last_response.status
@@ -86,7 +86,7 @@ class AppTest < Minitest::Test
 
   def test_contact_rate_limited_after_five
     ip = fresh_ip
-    token = csrf_token_from('/')
+    token = csrf_token_from('/contact')
     5.times do
       post '/contact', contact_params(authenticity_token: token), 'HTTP_X_FORWARDED_FOR' => ip
       assert_equal 302, last_response.status

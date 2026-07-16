@@ -89,12 +89,25 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/' do
-    @form_errors = nil
-    @form_values = {}
     erb :index
   end
 
+  get '/keys' do
+    @page_title = 'Keys · Sergei Poljanski'
+    @page_desc  = 'PGP fingerprint and SSH public key of Sergei Poljanski. Verify or download the key files.'
+    erb :keys
+  end
+
+  get '/contact' do
+    @page_title = 'Contact · Sergei Poljanski'
+    @page_desc  = 'Contact Sergei Poljanski: contact form, email, Telegram, phone. Legal entity details for invoices and contracts.'
+    @form_errors = nil
+    @form_values = {}
+    erb :contact
+  end
+
   post '/contact' do
+    @page_title = 'Contact · Sergei Poljanski'
     name    = params[:name].to_s.strip
     email   = params[:email].to_s.strip
     subject = params[:subject].to_s.strip
@@ -114,13 +127,13 @@ class AsxpioWeb < Sinatra::Base
 
     if @form_errors.any?
       status 422
-      return erb :index
+      return erb :contact
     end
 
     unless RATE_LIMIT.allow?(client_ip)
       @form_errors[:base] = 'Too many submissions. Try again later or email ie@asxp.io directly.'
       status 429
-      return erb :index
+      return erb :contact
     end
 
     begin
@@ -131,7 +144,7 @@ class AsxpioWeb < Sinatra::Base
       $logger.error("notify_owner failed: #{e.class}: #{e.message}")
       @form_errors[:base] = 'Could not send message right now. Please email ie@asxp.io directly.'
       status 500
-      return erb :index
+      return erb :contact
     end
 
     begin
@@ -156,7 +169,7 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/thanks' do
-    @page_title = 'Thanks — IE Sergei Poljanski'
+    @page_title = 'Thanks · IE Sergei Poljanski'
     @page_desc  = 'Your message has been received. A confirmation copy has been sent to your inbox.'
     @noindex    = true
     erb :thanks
@@ -177,7 +190,7 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/admin/invoices' do
-    @page_title = 'Invoices — admin'
+    @page_title = 'Invoices · admin'
     @noindex    = true
     @invoices   = Invoice.order(Sequel.desc(:created_at)).all
     erb :'admin/invoices/index'
@@ -225,7 +238,7 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/admin/invoices/new' do
-    @page_title  = 'New invoice — admin'
+    @page_title  = 'New invoice · admin'
     @noindex     = true
     @form_errors = nil
     @form_values = {}
@@ -240,7 +253,7 @@ class AsxpioWeb < Sinatra::Base
   get '/admin/invoices/:uuid/duplicate' do
     src = Invoice[uuid: params[:uuid]] or halt 404
     term = (src.due_on - src.issued_on).to_i
-    @page_title  = 'New invoice — admin'
+    @page_title  = 'New invoice · admin'
     @noindex     = true
     @form_errors = nil
     @form_values = {
@@ -278,7 +291,7 @@ class AsxpioWeb < Sinatra::Base
     @form_errors = validate_invoice_params(@form_values)
 
     if @form_errors.any?
-      @page_title = 'New invoice — admin'
+      @page_title = 'New invoice · admin'
       @noindex    = true
       status 422
       return erb :'admin/invoices/new'
@@ -309,7 +322,7 @@ class AsxpioWeb < Sinatra::Base
 
   get '/admin/invoices/:uuid' do
     @invoice = Invoice[uuid: params[:uuid]] or halt 404
-    @page_title = "#{@invoice.number} — admin"
+    @page_title = "#{@invoice.number} · admin"
     @noindex    = true
     erb :'admin/invoices/show'
   end
