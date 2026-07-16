@@ -56,9 +56,13 @@ If the storage stack is down, the asxpio container will fail to boot (Sequel con
 
 The `asxpio` Postgres role + `asxpio-invoices` MinIO bucket + scoped MinIO user are provisioned by the storage repo's init containers (`init/postgres-init.sh`, `init/minio-bootstrap.sh`). Changing those requires editing storage, not this repo.
 
+## Page structure
+
+The public site is multi-page: `/` (hero + intro links + services grid), `/keys`, `/contact` (form + direct contacts + the demoted legal/invoice-details block). Shared top nav in `views/partials/_site_nav.erb` (included by each page view, not the layout, so invoice/admin pages stay nav-free); it highlights the active page and links to `blog.asxp.io` — **the blog repo (`../blog`) must be deployed or that nav link 404s**. Per-page `@page_title` is set in the routes.
+
 ## Contact form behavior
 
-`POST /contact` does, in order:
+The form lives on `GET /contact`; validation errors re-render `:contact` (422/429/500). `POST /contact` does, in order:
 1. Honeypot check — if `website` field non-empty, silently 302 to `/thanks`.
 2. Validate name, email, subject, message.
 3. Rate-limit by client IP.
@@ -120,16 +124,21 @@ Admin pages use a shared dark palette extended in `public/style.css` (search for
 
 `public/id_ed25519.pub` is served from the site. The comment field (currently `ie+2026@asxp.io`) is part of the key file itself; editing the website without regenerating the key file means the website and the file disagree. Keep them in sync, or regenerate the key.
 
-## Logo placeholder
+## Logo & brand assets
 
-The header monogram in `views/index.erb` (inline SVG, "SP" in Hack monospace on a 56×56 dark-grey square) is a **placeholder** awaiting a real logo from a designer friend. When the real logo arrives, swap in this order:
+The real logo from the designer friend has landed: `public/logo.svg`, a white hedgehog with an "SP" script signature (the hedgehog mark got promoted from personal placeholder to brand). Derived assets, all generated from `logo.svg`:
 
-1. **Drop the asset** into `public/` (e.g. `public/logo.svg` — prefer SVG; PNG fallback if needed).
-2. **Header in `views/index.erb`** — replace the entire `<div class="monogram">…</div>` block with `<img src="/logo.svg" alt="IE Sergei Poljanski" class="monogram" />`. The `.monogram` CSS class in `public/style.css` (centered, `margin-bottom: 14px`) handles layout — adjust `width`/`height` on the `<img>` if the new logo's proportions differ.
-3. **Favicons** — replace or supplement `public/hedgehog.png`. The `<link rel="icon">` and `<link rel="apple-touch-icon">` in `views/layout.erb` point at `/hedgehog.png`; update both. Ideally provide 32×32 (favicon) and 180×180 (apple-touch).
-4. **Open Graph image** — currently absent (Twitter Card type is `summary`, no thumbnail). Add `public/og-card.png` (1200×630, logo + entity name on dark `#121212`), then in `views/layout.erb` add `<meta property="og:image" content="https://asxp.io/og-card.png" />` and change `<meta name="twitter:card" content="summary" />` to `summary_large_image`.
+- `public/favicon-32.png` — hedgehog only (no "SP", too small to read) on `#121212`. Generated but **not used**: the user prefers the old `hedgehog.png` as favicon.
+- `public/apple-touch-icon.png` — 180×180, same treatment. Also currently unused.
+- `public/og-card.png` — 1200×630 OG/Twitter card: hedgehog + name + tagline in IBM Plex Sans on `#121212`. Referenced from `views/layout.erb` (`og:image`, `twitter:card: summary_large_image`).
 
-The hedgehog is the user's pre-IE personal mark; once the IE has its own logo, the hedgehog can stay as-is for old-time's sake or be retired. Ask before retiring it.
+To regenerate (e.g. if the logo changes): `resvg --export-id 'hedgehog-'` renders the hedgehog without the signature; compose with ImageMagick on a `#121212` canvas (both via `nix shell nixpkgs#resvg nixpkgs#imagemagick`). `public/hedgehog.png` is the old pre-IE personal mark and remains the favicon + apple-touch icon by the user's choice (`views/layout.erb`).
+
+## Fonts & design tokens
+
+Web fonts are **self-hosted** in `public/fonts/` (no Google Fonts / jsdelivr): IBM Plex Sans (400/400i/600/700) + IBM Plex Mono (400), latin subsets from fontsource, plus `NotoSansGeorgian-Regular.woff2` (converted from the vendored PDF TTF) as a `unicode-range`-gated fallback so the Georgian legal name renders in Noto without a download on Georgian-free pages. `@font-face` lives at the top of `public/style.css`; `layout.erb` preloads the two main sans weights. The PDF fonts (TTFs, same dir) are unchanged and still used by Prawn.
+
+All colors in `public/style.css` are CSS custom properties on `:root` (design tokens: `--bg`, `--surface*`, `--border*`, `--text*`, badge colors). The blog repo (`../blog`) is meant to consume the same token block — keep them in sync when restyling. Don't hard-code hex values in new CSS; add a token.
 
 ## Common tasks
 
