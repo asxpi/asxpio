@@ -68,7 +68,7 @@
             <tbody>
                 <% (@form_values[:items] || [{'description' => '', 'qty' => '', 'unit_price' => ''}]).each_with_index do |item, i| %>
                     <tr class="item-row">
-                        <td><input type="text" name="items[<%= i %>][description]" value="<%= item['description'] %>" placeholder="DevOps engineering — May 2026" maxlength="300" /></td>
+                        <td><input type="text" name="items[<%= i %>][description]" value="<%= item['description'] %>" placeholder="DevOps engineering, May 2026" maxlength="300" /></td>
                         <td class="num"><input type="text" name="items[<%= i %>][qty]" value="<%= item['qty'] %>" placeholder="1" inputmode="decimal" /></td>
                         <td class="num"><input type="text" name="items[<%= i %>][unit_price]" value="<%= item['unit_price'] %>" placeholder="0.00" inputmode="decimal" /></td>
                         <td class="actions"><button type="button" class="remove-row" aria-label="Remove">×</button></td>
@@ -90,7 +90,7 @@
                 <label for="crypto_coin">Coin</label>
                 <select id="crypto_coin" name="crypto_coin">
                     <% CryptoAsset::CODES.each do |c| %>
-                        <option value="<%= c %>" <%= 'selected' if (@form_values[:crypto_coin] || 'LTC') == c %>><%= c %> — <%= CryptoAsset.name(c) %></option>
+                        <option value="<%= c %>" <%= 'selected' if (@form_values[:crypto_coin] || 'LTC') == c %>><%= c %> · <%= CryptoAsset.name(c) %></option>
                     <% end %>
                 </select>
             </div>

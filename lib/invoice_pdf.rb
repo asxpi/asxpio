@@ -301,7 +301,7 @@ class InvoicePdf
           hint = if asset[:amount_param]
                    "Scan the QR with any #{CryptoAsset.name(coin)} wallet to prefill the payment."
                  else
-                   "QR encodes the address. Send #{coin} only — verify the network before sending."
+                   "QR encodes the address. Send #{coin} only. Verify the network before sending."
                  end
           pdf.font_size(7) { pdf.text hint }
           pdf.fill_color COLOR_TEXT
