@@ -1,5 +1,5 @@
-<% page_title = (defined?(@page_title) && @page_title) || 'Sergei Poljanski — DevOps & Infrastructure Engineering' %>
-<% page_desc  = (defined?(@page_desc) && @page_desc) || 'Sergei Poljanski — Estonian-born EU citizen, DevOps & infrastructure engineer based in Tbilisi, Georgia. Docker, Kubernetes, Terraform, Ansible, CI/CD, monitoring. Available for worldwide clients. Invoiced through IE Sergei Poljanski.' %>
+<% page_title = (defined?(@page_title) && @page_title) || 'Sergei Poljanski · DevOps & Infrastructure Engineering' %>
+<% page_desc  = (defined?(@page_desc) && @page_desc) || 'Sergei Poljanski: Estonian-born EU citizen, DevOps & infrastructure engineer based in Tbilisi, Georgia. Docker, Kubernetes, Terraform, Ansible, CI/CD, monitoring. Available for worldwide clients. Invoiced through IE Sergei Poljanski.' %>
 <% noindex    = defined?(@noindex) && @noindex %>
 <!doctype html>
 <html lang="en">
@@ -24,18 +24,23 @@
         <meta property="og:description" content="<%= page_desc %>" />
         <meta property="og:url" content="https://asxp.io<%= request.path %>" />
         <meta property="og:locale" content="en_US" />
+        <meta property="og:image" content="https://asxp.io/og-card.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
 
         <!-- Twitter Card -->
-        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="<%= page_title %>" />
         <meta name="twitter:description" content="<%= page_desc %>" />
+        <meta name="twitter:image" content="https://asxp.io/og-card.png" />
 
         <!-- Favicons -->
         <link rel="icon" type="image/png" href="/hedgehog.png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/hedgehog.png" />
 
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
-        <link rel='stylesheet' href='//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack-subset.css'>
+        <!-- Fonts are self-hosted; see @font-face in style.css -->
+        <link rel="preload" href="/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="/fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
         <link rel="stylesheet" href="/style.css" />
 
         <!-- Structured data: Person (primary) + Organization (employer) -->
@@ -65,10 +70,13 @@
                     "worksFor": { "@id": "https://asxp.io/#organization" },
                     "knowsAbout": [
                         "DevOps", "Site Reliability Engineering", "Kubernetes", "Docker",
-                        "Terraform", "Ansible", "CI/CD", "Linux", "NixOS",
-                        "Prometheus", "Grafana", "Loki", "Infrastructure as Code"
+                        "Terraform", "Ansible", "CI/CD", "Linux", "NixOS", "Debian",
+                        "Hetzner Cloud", "WireGuard", "Traefik", "GitHub Actions",
+                        "Prometheus", "Grafana", "Loki", "Infrastructure as Code",
+                        "Ruby", "Lua"
                     ],
                     "sameAs": [
+                        "https://blog.asxp.io",
                         "https://git.czsk.it/asxpi/asxpio",
                         "https://github.com/asxpi",
                         "https://www.linkedin.com/in/asxpi"
