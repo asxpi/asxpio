@@ -12,15 +12,6 @@ class AppTest < Minitest::Test
     TestDb.clean! if TestDb.available?
   end
 
-  # Each test that passes contact validation must use a fresh IP: the app-level
-  # rate limiter (5/hour) is shared process state, so the counter must be
-  # unique across the whole run, not per test.
-  @@ip_counter = 0
-  def fresh_ip
-    @@ip_counter += 1
-    "10.9.#{@@ip_counter / 250}.#{@@ip_counter % 250}"
-  end
-
   def csrf_token_from(path, env = {})
     get path, {}, env
     assert last_response.ok?, "GET #{path} failed: #{last_response.status}"
@@ -46,53 +37,20 @@ class AppTest < Minitest::Test
     assert_equal 'ok', last_response.body
   end
 
-  # --- contact form ---------------------------------------------------------
+  # --- contact page ---------------------------------------------------------
+  # The form was removed (persistent spam); the page keeps the direct contacts.
 
-  def contact_params(over = {})
-    { name: 'Visitor', email: 'visitor@example.com', subject: 'Hello',
-      message: 'A message.', website: '' }.merge(over)
+  def test_contact_page_renders_without_form
+    get '/contact'
+    assert last_response.ok?
+    assert_includes last_response.body, 'ie@asxp.io'
+    refute_match %r{<form[^>]*action="/contact"}, last_response.body
   end
 
-  def test_contact_without_csrf_token_forbidden
-    post '/contact', contact_params
-    assert_equal 403, last_response.status
-  end
-
-  def test_contact_honeypot_pretends_success_and_sends_nothing
-    token = csrf_token_from('/contact')
-    post '/contact', contact_params(website: 'spam', authenticity_token: token)
-    assert_equal 302, last_response.status
-    assert_match %r{/thanks}, last_response.location
+  def test_contact_post_is_gone
+    post '/contact', { name: 'Spam', message: 'Spam' }
+    refute_equal 302, last_response.status
     assert_empty Mail::TestMailer.deliveries
-  end
-
-  def test_contact_invalid_email_rejected
-    token = csrf_token_from('/contact')
-    post '/contact', contact_params(email: 'not-an-email', authenticity_token: token)
-    assert_equal 422, last_response.status
-    assert_empty Mail::TestMailer.deliveries
-  end
-
-  def test_contact_valid_submission_sends_two_mails
-    token = csrf_token_from('/contact')
-    post '/contact', contact_params(authenticity_token: token),
-         'HTTP_X_FORWARDED_FOR' => fresh_ip
-    assert_equal 302, last_response.status
-    assert_equal 2, Mail::TestMailer.deliveries.size
-    to_owner, to_visitor = Mail::TestMailer.deliveries
-    assert_includes to_owner.to, ENV['MAIL_TO']
-    assert_includes to_visitor.to, 'visitor@example.com'
-  end
-
-  def test_contact_rate_limited_after_five
-    ip = fresh_ip
-    token = csrf_token_from('/contact')
-    5.times do
-      post '/contact', contact_params(authenticity_token: token), 'HTTP_X_FORWARDED_FOR' => ip
-      assert_equal 302, last_response.status
-    end
-    post '/contact', contact_params(authenticity_token: token), 'HTTP_X_FORWARDED_FOR' => ip
-    assert_equal 429, last_response.status
   end
 
   # --- admin ------------------------------------------------------------

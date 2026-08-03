@@ -100,60 +100,8 @@ class AsxpioWeb < Sinatra::Base
 
   get '/contact' do
     @page_title = 'Contact · Sergei Poljanski'
-    @page_desc  = 'Contact Sergei Poljanski: contact form, email, Telegram, phone. Legal entity details for invoices and contracts.'
-    @form_errors = nil
-    @form_values = {}
+    @page_desc  = 'Contact Sergei Poljanski: email, Telegram, phone. Legal entity details for invoices and contracts.'
     erb :contact
-  end
-
-  post '/contact' do
-    @page_title = 'Contact · Sergei Poljanski'
-    name    = params[:name].to_s.strip
-    email   = params[:email].to_s.strip
-    subject = params[:subject].to_s.strip
-    message = params[:message].to_s.strip
-    honey   = params[:website].to_s
-
-    # Honeypot — silently pretend success
-    redirect '/thanks' unless honey.empty?
-
-    @form_values = { name: name, email: email, subject: subject, message: message }
-    @form_errors = {}
-
-    @form_errors[:name]    = 'Required (1–100 chars)'  if name.empty? || name.length > 100
-    @form_errors[:email]   = 'Valid email required'    if email.empty? || email !~ URI::MailTo::EMAIL_REGEXP || email.length > 200
-    @form_errors[:subject] = 'Max 200 chars'            if subject.length > 200
-    @form_errors[:message] = 'Required (1–5000 chars)' if message.empty? || message.length > 5000
-
-    if @form_errors.any?
-      status 422
-      return erb :contact
-    end
-
-    unless RATE_LIMIT.allow?(client_ip)
-      @form_errors[:base] = 'Too many submissions. Try again later or email ie@asxp.io directly.'
-      status 429
-      return erb :contact
-    end
-
-    begin
-      Mailer.notify_owner(
-        name: name, email: email, subject: subject, message: message, ip: client_ip
-      )
-    rescue StandardError => e
-      $logger.error("notify_owner failed: #{e.class}: #{e.message}")
-      @form_errors[:base] = 'Could not send message right now. Please email ie@asxp.io directly.'
-      status 500
-      return erb :contact
-    end
-
-    begin
-      Mailer.confirm_visitor(name: name, email: email, subject: subject, message: message)
-    rescue StandardError => e
-      $logger.warn("confirm_visitor failed: #{e.class}: #{e.message}")
-    end
-
-    redirect '/thanks'
   end
 
   # Liveness for the Docker HEALTHCHECK and the deploy pipeline. Pings the DB
@@ -166,13 +114,6 @@ class AsxpioWeb < Sinatra::Base
       halt 503, 'db unreachable'
     end
     'ok'
-  end
-
-  get '/thanks' do
-    @page_title = 'Thanks · IE Sergei Poljanski'
-    @page_desc  = 'Your message has been received. A confirmation copy has been sent to your inbox.'
-    @noindex    = true
-    erb :thanks
   end
 
   # --- Admin: invoices ----------------------------------------------------

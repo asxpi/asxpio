@@ -277,73 +277,7 @@ a:hover {
     display: block;
 }
 
-/* Contact form */
-.contact-form {
-    margin: 0 0 24px;
-}
-.contact-form .hp {
-    position: absolute;
-    left: -10000px;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-}
-.contact-form .field {
-    margin-bottom: 10px;
-}
-.contact-form .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 14px;
-}
-.contact-form label {
-    display: block;
-    color: var(--text-dimmer);
-    font-size: 0.8rem;
-    margin-bottom: 3px;
-}
-.contact-form .optional {
-    color: var(--text-ghost);
-    font-size: 0.8rem;
-}
-.contact-form input[type="text"],
-.contact-form input[type="email"],
-.contact-form textarea {
-    width: 100%;
-    box-sizing: border-box;
-    background: var(--surface);
-    color: var(--text-strong);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 8px 10px;
-    font-family: inherit;
-    font-size: 0.95rem;
-}
-.contact-form textarea {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    resize: vertical;
-}
-.contact-form input:focus,
-.contact-form textarea:focus {
-    outline: none;
-    border-color: var(--text-ghost);
-    background: var(--border-subtle);
-}
-.contact-form button {
-    background: var(--border);
-    color: var(--text-strong);
-    border: 1px solid var(--border-strong);
-    border-radius: 3px;
-    padding: 8px 20px;
-    font-family: inherit;
-    font-size: 0.95rem;
-    cursor: pointer;
-}
-.contact-form button:hover {
-    background: var(--surface-hover);
-    border-color: var(--text-ghost);
-}
+/* Form errors (admin invoice form) */
 .form-error {
     display: block;
     color: var(--danger);
@@ -357,10 +291,12 @@ a:hover {
     border-radius: 3px;
     margin-bottom: 16px;
 }
+.contact-intro {
+    color: var(--text-dim);
+    margin: 0 0 16px;
+}
 .contact-direct {
     margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px dashed var(--border);
 }
 
 /* Keys */
@@ -568,9 +504,6 @@ a:hover {
 }
 
 @media (max-width: 560px) {
-    .contact-form .form-row {
-        grid-template-columns: 1fr;
-    }
     dl.kv {
         grid-template-columns: 1fr;
         gap: 2px 0;

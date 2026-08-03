@@ -60,16 +60,17 @@ The `asxpio` Postgres role + `asxpio-invoices` MinIO bucket + scoped MinIO user 
 
 The public site is multi-page: `/` (hero + intro links + services grid), `/keys`, `/contact` (form + direct contacts + the demoted legal/invoice-details block). Shared top nav in `views/partials/_site_nav.erb` (included by each page view, not the layout, so invoice/admin pages stay nav-free); it highlights the active page and links to `blog.asxp.io` — **the blog repo (`../blog`) must be deployed or that nav link 404s**. Per-page `@page_title` is set in the routes.
 
-## Contact form behavior
+## Contact (form removed)
 
-The form lives on `GET /contact`; validation errors re-render `:contact` (422/429/500). `POST /contact` does, in order:
-1. Honeypot check — if `website` field non-empty, silently 302 to `/thanks`.
-2. Validate name, email, subject, message.
-3. Rate-limit by client IP.
-4. `Mailer.notify_owner` → message to `MAIL_TO` (`ie@asxp.io`), `Reply-To: <visitor email>`.
-5. `Mailer.confirm_visitor` → receipt to visitor, `Reply-To: ie@asxp.io`. Failure here is logged but not surfaced to the user.
+**There is no contact form.** `/contact` is a static page: direct contacts (email, Telegram, phone) plus the legal/invoice-details block. `POST /contact` and `GET /thanks` were removed, along with `views/partials/_contact_form.erb`, `views/thanks.erb`, the honeypot, and the `.contact-form` CSS.
 
-`MAIL_FROM` must use a Fastmail-verified send-as address (currently `me@asxp.io`). The friendly name reads "IE Sergei Poljanski Contact Form".
+Removed 2026-08-04 after persistent spam: ~12 submissions/48h reaching the inbox, overwhelmingly from `80.94.95.173` (with neighbours in `80.94.95.0/24` and `141.98.11.0/24`). The traffic was scripted, not browser-driven — `HTTP/1.0` requests with a User-Agent randomised per request across Chrome 129/130/131 + Avast/CCleaner/Edg variants. The in-app rate limiter was absorbing ~75% of attempts but the remainder still landed. Options weighed and rejected: proof-of-work captcha (would have worked against these no-JS scripts, but not worth the code for a form whose only output is an email), Cloudflare Turnstile (external dependency, conflicts with the self-hosted posture), Traefik IP ban (v3 has no built-in deny-list — only `IPAllowList`; would need a third-party plugin or an all-except-CIDR allow-list with an IPv6 footgun).
+
+**Still present but now unused by the public site:** `lib/mailer.rb`, `lib/rate_limit.rb`, and the `SMTP_*` / `MAIL_*` env vars. Left in place deliberately so the form can be restored, and because `Mailer.configure!` still runs at boot. If the form is never coming back, these and their Forgejo secrets can be retired.
+
+`MAIL_FROM` must use a Fastmail-verified send-as address (currently `me@asxp.io`).
+
+If a form is ever reinstated, note that Traefik's access log (`/opt/traefik/logs/access.log`, User-Agent retained) is the only place with client IPs — the app itself logs no requests.
 
 ## Invoicing
 
