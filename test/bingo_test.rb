@@ -170,6 +170,23 @@ class BingoTest < Minitest::Test
     assert_equal '480x240', dims
   end
 
+  def test_sniff_accepts_utf8_tagged_bytes
+    assert_equal 'jpg', Bingo::Photo.sniff(JPEG.dup.force_encoding('UTF-8'))
+  end
+
+  def test_rebuild_from_utf8_s3_body
+    skip 'ImageMagick not available' unless system(Bingo::Photo::CONVERT, '-version', out: File::NULL, err: File::NULL)
+    png, = Open3.capture2(Bingo::Photo::CONVERT, '-size', '800x600', 'gradient:red-blue', 'png:-', binmode: true)
+    Aws.config[:s3] = { stub_responses: { get_object: { body: png.dup.force_encoding('UTF-8') } } }
+    S3.instance_variable_set(:@client, nil)
+    @dcs[0].update(photo_key: 'bingo/dc-1-0123abcd.png')
+    Bingo::Photo.rebuild(@dcs[0])
+    assert @dcs[0].refresh.photo_variants
+  ensure
+    Aws.config[:s3] = { stub_responses: true }
+    S3.instance_variable_set(:@client, nil)
+  end
+
   def test_photo_rejects_non_images
     assert_raises(Bingo::Photo::Error) { Bingo::Photo.store('dc-1', '<html>') }
   end

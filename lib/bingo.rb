@@ -138,7 +138,10 @@ module Bingo
 
     module_function
 
+    # Input may arrive tagged UTF-8 (aws-sdk bodies are plain StringIOs), and
+    # comparing that with binary literals raises, so look at raw bytes.
     def sniff(bytes)
+      bytes = bytes.b
       return 'jpg'  if bytes.start_with?("\xFF\xD8\xFF".b)
       return 'png'  if bytes.start_with?("\x89PNG\r\n\x1A\n".b)
       return 'webp' if bytes[0, 4] == 'RIFF' && bytes[8, 4] == 'WEBP'
@@ -175,6 +178,7 @@ module Bingo
     end
 
     def build_variants(key, bytes)
+      bytes = bytes.b
       ext = sniff(bytes) or raise Error, 'not an image'
       WIDTHS.each { |w| S3.put(variant_key(key, w), resize(bytes, ext, w), content_type: TYPES['webp']) }
       true
@@ -198,6 +202,8 @@ module Bingo
       out.b
     rescue Errno::ENOENT
       raise Error, 'ImageMagick (convert) not installed'
+    rescue Errno::EPIPE, IOError => e # convert exited before reading all input
+      raise Error, "convert: #{e.class}"
     end
 
     # Photos are served byte-for-byte, so drop EXIF/XMP/IPTC/text metadata:
@@ -276,7 +282,7 @@ module Bingo
             raise Error, 'too many redirects' if redirects.zero?
             return fetch(URI.join(uri, res['location']).to_s, redirects: redirects - 1)
           when Net::HTTPSuccess
-            body = +''
+            body = +''.b
             res.read_body do |chunk|
               body << chunk
               raise Error, 'image too large (max 8 MB)' if body.bytesize > MAX_BYTES

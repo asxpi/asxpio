@@ -162,8 +162,14 @@ module BingoAdmin
     # Regenerate resized variants from the originals already in the bucket.
     app.post '/admin/bingo/photos/rebuild' do
       dcs = Bingo::Datacenter.exclude(photo_key: nil).all
-      dcs.each { |dc| Bingo::Photo.rebuild(dc) }
-      failed = dcs.reject(&:photo_variants).map(&:slug)
+      errors = {}
+      dcs.each do |dc|
+        Bingo::Photo.rebuild(dc)
+      rescue StandardError => e # one bad object must not abort the batch
+        errors[dc.slug] = "#{e.class}: #{e.message.lines.first&.strip}"
+        $logger.error("bingo: rebuild #{dc.slug}: #{e.class}: #{e.message}")
+      end
+      failed = dcs.reject(&:photo_variants).map { |dc| errors[dc.slug] ? "#{dc.slug} (#{errors[dc.slug]})" : dc.slug }
       session[:bingo_flash] = "Rebuilt #{dcs.size - failed.size}/#{dcs.size}.#{" Failed: #{failed.join(', ')}" if failed.any?}"
       redirect '/admin/bingo'
     end

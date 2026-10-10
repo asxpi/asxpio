@@ -41,7 +41,7 @@ module S3
   end
 
   def get(key)
-    client.get_object(bucket: bucket, key: key).body.read
+    client.get_object(bucket: bucket, key: key).body.read.b # body is a UTF-8 StringIO
   end
 
   def exists?(key)
