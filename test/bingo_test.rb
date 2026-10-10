@@ -114,6 +114,62 @@ class BingoTest < Minitest::Test
     assert_equal out.bytesize - 8, out.byteslice(4, 4).unpack1('V')
   end
 
+  def test_robots_and_sitemap_are_the_bingos_own
+    get '/robots.txt'
+    assert last_response.ok?
+    assert_includes last_response.body, 'Sitemap: https://example.org/sitemap.xml'
+    refute_includes last_response.body, 'asxp.io'
+    get '/sitemap.xml'
+    assert last_response.ok?
+    %w[ru en uk].each { |l| assert_includes last_response.body, "<loc>https://example.org/#{l}</loc>" }
+    assert_includes last_response.body, 'hreflang="x-default"'
+  end
+
+  def test_asxpio_static_files_not_served
+    get '/style.css'
+    assert_equal 404, last_response.status
+    get '/pgp.pub'
+    assert_equal 404, last_response.status
+  end
+
+  def test_root_varies_on_language
+    get '/'
+    assert_equal 'Accept-Language', last_response.headers['Vary']
+  end
+
+  def test_seo_head
+    hit!(3)
+    @dcs[3].update(photo_key: 'bingo/dc-4-0123abcd.jpg', photo_variants: true)
+    get '/en'
+    body = last_response.body
+    assert_includes body, '<title>Datacenter Bingo — strikes'
+    assert_includes body, '1 of Russia&#39;s 25 largest'
+    assert_includes body, '<meta property="og:image" content="https://example.org/p/dc-4-0123abcd-1200.webp">'
+    assert_includes body, 'src="/p/dc-4-0123abcd-480.webp"'
+    assert_includes body, 'og:locale:alternate" content="uk_UA"'
+    ld = JSON.parse(body[%r{<script type="application/ld\+json">(.*?)</script>}m, 1])
+    list = ld['@graph'].find { |n| n['@type'] == 'ItemList' }
+    assert_equal 25, list['itemListElement'].size
+    assert_equal 'DC 1', list['itemListElement'][0]['item']['name']
+  end
+
+  def test_photo_falls_back_to_original_without_variants
+    @dcs[0].update(photo_key: 'bingo/dc-1-0123abcd.jpg', photo_variants: false)
+    assert_equal 'dc-1-0123abcd.jpg', @dcs[0].photo_file(480)
+    @dcs[0].update(photo_variants: true)
+    assert_equal 'dc-1-0123abcd-480.webp', @dcs[0].photo_file(480)
+    assert_equal 'dc-1-0123abcd.jpg', @dcs[0].photo_file
+  end
+
+  def test_resize_produces_small_webp
+    skip 'ImageMagick not available' unless system(Bingo::Photo::CONVERT, '-version', out: File::NULL, err: File::NULL)
+    png, = Open3.capture2(Bingo::Photo::CONVERT, '-size', '2000x1000', 'gradient:red-blue', 'png:-', binmode: true)
+    out = Bingo::Photo.resize(png.b, 'png', 480)
+    assert_equal 'webp', Bingo::Photo.sniff(out)
+    dims, = Open3.capture2(Bingo::Photo::CONVERT, 'webp:-', '-format', '%wx%h', 'info:', stdin_data: out, binmode: true)
+    assert_equal '480x240', dims
+  end
+
   def test_photo_rejects_non_images
     assert_raises(Bingo::Photo::Error) { Bingo::Photo.store('dc-1', '<html>') }
   end

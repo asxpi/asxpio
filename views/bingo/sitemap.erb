@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<% Bingo::LOCALES.each do |l| %>
+  <url>
+    <loc><%= base_url %>/<%= l %></loc>
+<% if @lastmod %>    <lastmod><%= @lastmod.utc.strftime('%Y-%m-%d') %></lastmod>
+<% end %>    <changefreq>daily</changefreq>
+<% Bingo::LOCALES.each do |alt| %>    <xhtml:link rel="alternate" hreflang="<%= alt %>" href="<%= base_url %>/<%= alt %>"/>
+<% end %>    <xhtml:link rel="alternate" hreflang="x-default" href="<%= base_url %>/"/>
+  </url>
+<% end %>
+</urlset>

@@ -25,11 +25,11 @@
   <div class="letters" aria-hidden="true"><% t(:letters).each do |ch| %><div><%= ch %></div><% end %></div>
   <div class="grid">
     <% b.cells.each_with_index do |dc, idx| %>
-      <% photo = photo_path(dc) %>
+      <% photo = photo_path(dc, 480) %>
       <button type="button" data-dlg="dlg-<%= dc.slug %>"
               class="cell<%= ' photo' if photo %><%= ' hit' if b.hit[idx] %><%= ' win' if b.win_cells.include?(idx) %>"
-              <% if photo %>style="background-image: url('<%= photo %>')"<% end %>
               aria-label="<%= dc.l(:name, @locale) %><%= " — #{kind_label(dc.incidents.first.kind)}" if b.hit[idx] %>">
+        <% if photo %><img class="bg" src="<%= photo %>" alt="" width="480" height="480" decoding="async"<%== ' loading="lazy"' if idx >= 10 %>><% end %>
         <div>
           <div class="n">#<%= idx + 1 %><%= " · #{mw(dc)}" if mw(dc) %></div>
           <% if dc.building? %><div class="tag"><%= t(:building) %></div><% end %>
@@ -70,7 +70,7 @@
 
 <% b.cells.each do |dc| %>
   <dialog id="dlg-<%= dc.slug %>">
-    <% if (photo = photo_path(dc)) %><img src="<%= photo %>" alt="<%= dc.l(:name, @locale) %>" loading="lazy"><% end %>
+    <% if (photo = photo_path(dc, 1200)) %><img src="<%= photo %>" alt="<%= dc.l(:name, @locale) %>, <%= dc.l(:city, @locale) %>" loading="lazy" decoding="async"><% end %>
     <div class="body">
       <h3><%= dc.l(:name, @locale) %></h3>
       <div class="meta">

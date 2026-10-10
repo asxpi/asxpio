@@ -2,6 +2,7 @@ require 'sequel'
 require 'json'
 require 'net/http'
 require 'securerandom'
+require 'open3'
 require_relative 's3'
 
 # Datacenter bingo: a 5x5 card of the largest Russian datacenters; a cell is
@@ -21,6 +22,9 @@ module Bingo
 
   T = {
     'ru' => {
+      seo_title: 'Бинго ЦОДов — атаки, пожары и аварии дата-центров России',
+      seo_desc: '%{hit} из %{total} крупнейших дата-центров России уже зачёркнуты. Бинго-карточка ЦОДов IXcellerate, Яндекса, Ростелекома, Росатома и других: атаки БПЛА, пожары и отключения с источниками.',
+      og_locale: 'ru_RU',
       title: 'Бинго ЦОДов', accent: 'ЦОДов', lead: 'Бинго',
       desc: 'Топ-25 дата-центров России по мощности. Клетка зачёркивается после публично подтверждённого инцидента.',
       crossed: 'Зачёркнуто', lines: 'линий', updated: 'обновлено',
@@ -33,6 +37,9 @@ module Bingo
       letters: %w[Б И Н Г О]
     },
     'en' => {
+      seo_title: 'Datacenter Bingo — strikes, fires and outages at Russian datacenters',
+      seo_desc: '%{hit} of Russia\'s %{total} largest datacenters are already crossed out. A bingo card of IXcellerate, Yandex, Rostelecom, Rosatom and other datacenters: drone strikes, fires and outages, each with a source.',
+      og_locale: 'en_US',
       title: 'Datacenter Bingo', accent: 'Bingo', lead: 'Datacenter',
       desc: "Russia's 25 largest datacenters by power. A cell is crossed out after a publicly reported incident.",
       crossed: 'Crossed out', lines: 'lines', updated: 'updated',
@@ -45,6 +52,9 @@ module Bingo
       letters: %w[B I N G O]
     },
     'uk' => {
+      seo_title: 'Бінго ЦОДів — атаки, пожежі та аварії дата-центрів Росії',
+      seo_desc: '%{hit} з %{total} найбільших дата-центрів Росії вже закреслено. Бінго-картка ЦОДів IXcellerate, Яндекса, Ростелекому, Росатому та інших: атаки БПЛА, пожежі й відключення з джерелами.',
+      og_locale: 'uk_UA',
       title: 'Бінго ЦОДів', accent: 'ЦОДів', lead: 'Бінго',
       desc: 'Топ-25 дата-центрів Росії за потужністю. Клітинка закреслюється після публічно підтвердженого інциденту.',
       crossed: 'Закреслено', lines: 'ліній', updated: 'оновлено',
@@ -79,8 +89,12 @@ module Bingo
       status == 'building'
     end
 
-    def photo_file
-      photo_key&.delete_prefix(Photo::PREFIX)
+    # width: a Photo::WIDTHS variant (falls back to the original until the
+    # variants exist), nil for the original.
+    def photo_file(width = nil)
+      return unless photo_key
+      key = width && photo_variants ? Photo.variant_key(photo_key, width) : photo_key
+      key.delete_prefix(Photo::PREFIX)
     end
   end
 
@@ -115,7 +129,9 @@ module Bingo
   module Photo
     PREFIX    = 'bingo/'.freeze
     MAX_BYTES = 8 * 1024 * 1024
-    FILE_RE   = /\A[a-z0-9-]+-[0-9a-f]{8}\.(jpg|png|webp)\z/
+    FILE_RE   = /\A[a-z0-9-]+-[0-9a-f]{8}(?:-(?:480|1200))?\.(jpg|png|webp)\z/
+    WIDTHS    = [480, 1200].freeze # card cell (2x), dialog / og:image
+    CONVERT   = ENV.fetch('BINGO_CONVERT', 'convert') # ImageMagick
     TYPES     = { 'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' }.freeze
 
     class Error < StandardError; end
@@ -139,6 +155,49 @@ module Bingo
       key = "#{PREFIX}#{slug}-#{SecureRandom.hex(4)}.#{ext}"
       S3.put(key, bytes, content_type: TYPES[ext])
       key
+    end
+
+    # Stores the photo for dc and makes it current. Variants are best effort:
+    # without them the card falls back to the original.
+    def attach(dc, bytes)
+      key = store(dc.slug, bytes)
+      dc.update(photo_key: key, photo_variants: build_variants(key, bytes))
+      key
+    end
+
+    # Re-derives the variants from the stored original.
+    def rebuild(dc)
+      dc.update(photo_variants: build_variants(dc.photo_key, S3.get(dc.photo_key)))
+    end
+
+    def variant_key(key, width)
+      key.sub(/\.\w+\z/, "-#{width}.webp")
+    end
+
+    def build_variants(key, bytes)
+      ext = sniff(bytes) or raise Error, 'not an image'
+      WIDTHS.each { |w| S3.put(variant_key(key, w), resize(bytes, ext, w), content_type: TYPES['webp']) }
+      true
+    rescue Error => e
+      $logger.warn("bingo: no variants for #{key}: #{e.message}")
+      false
+    end
+
+    # Downscale (never up) to fit width x width, re-encode as WebP; -strip
+    # drops metadata again. The input coder is pinned to the sniffed type and
+    # memory/area limits guard against decompression bombs.
+    def resize(bytes, ext, width)
+      coder = { 'jpg' => 'jpeg', 'png' => 'png', 'webp' => 'webp' }.fetch(ext)
+      out, err, st = Open3.capture3(
+        CONVERT, '-limit', 'memory', '256MiB', '-limit', 'area', '128MP',
+        "#{coder}:-", '-auto-orient', '-resize', "#{width}x#{width}>",
+        '-strip', '-quality', '80', 'webp:-',
+        stdin_data: bytes, binmode: true
+      )
+      raise Error, "convert: #{err.lines.first&.strip}" unless st.success? && sniff(out.b) == 'webp'
+      out.b
+    rescue Errno::ENOENT
+      raise Error, 'ImageMagick (convert) not installed'
     end
 
     # Photos are served byte-for-byte, so drop EXIF/XMP/IPTC/text metadata:

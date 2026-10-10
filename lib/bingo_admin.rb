@@ -127,9 +127,9 @@ module BingoAdmin
             dc.photo_source_url = url
             Bingo::Photo.fetch(url)
           end
-        dc.photo_key = Bingo::Photo.store(dc.slug, bytes)
         dc.save_changes
-        session[:bingo_flash] = 'Photo stored.'
+        Bingo::Photo.attach(dc, bytes)
+        session[:bingo_flash] = dc.photo_variants ? 'Photo stored.' : 'Photo stored (no resized variants; check logs).'
       rescue Bingo::Photo::Error => e
         session[:bingo_flash] = "Photo failed: #{e.message}"
       end
@@ -138,7 +138,7 @@ module BingoAdmin
 
     app.post '/admin/bingo/dc/:id/photo/delete' do
       dc = Bingo::Datacenter[params[:id].to_i] or halt 404
-      dc.update(photo_key: nil)
+      dc.update(photo_key: nil, photo_variants: false)
       session[:bingo_flash] = 'Photo removed from card (object kept in bucket).'
       redirect "/admin/bingo/dc/#{dc.id}"
     end
@@ -150,12 +150,21 @@ module BingoAdmin
       scope = Bingo::Datacenter.exclude(photo_source_url: nil)
       scope = scope.where(photo_key: nil) unless params[:all] == '1'
       scope.each do |dc|
-        dc.update(photo_key: Bingo::Photo.store(dc.slug, Bingo::Photo.fetch(dc.photo_source_url)))
+        Bingo::Photo.attach(dc, Bingo::Photo.fetch(dc.photo_source_url))
         ok += 1
       rescue Bingo::Photo::Error => e
         failed << "#{dc.slug}: #{e.message}"
       end
       session[:bingo_flash] = (["Imported #{ok}."] + failed).join(' | ')
+      redirect '/admin/bingo'
+    end
+
+    # Regenerate resized variants from the originals already in the bucket.
+    app.post '/admin/bingo/photos/rebuild' do
+      dcs = Bingo::Datacenter.exclude(photo_key: nil).all
+      dcs.each { |dc| Bingo::Photo.rebuild(dc) }
+      failed = dcs.reject(&:photo_variants).map(&:slug)
+      session[:bingo_flash] = "Rebuilt #{dcs.size - failed.size}/#{dcs.size}.#{" Failed: #{failed.join(', ')}" if failed.any?}"
       redirect '/admin/bingo'
     end
 

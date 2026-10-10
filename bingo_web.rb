@@ -8,6 +8,9 @@ class BingoWeb < Sinatra::Base
     set :root, $root
     set :views, File.join($root, 'views', 'bingo')
     set :erb, layout: :layout, escape_html: true
+    # public/ belongs to asxp.io (its robots.txt, sitemap, keys, admin JS);
+    # the card needs none of it.
+    set :static, false
     set :show_exceptions, $env == 'development'
     set :host_authorization,
         { permitted_hosts: $env == 'production' ? HOSTS : [] }
@@ -17,7 +20,36 @@ class BingoWeb < Sinatra::Base
     def t(key) = Bingo::T[@locale][key]
     def kind_label(kind) = Bingo::T[@locale][:kinds][kind] || Bingo::T[@locale][:kinds]['other']
     def kind_icon(kind) = Bingo::ICONS[kind] || Bingo::ICONS['other']
-    def photo_path(dc) = dc.photo_file && "/p/#{dc.photo_file}"
+    def photo_path(dc, width = nil) = dc.photo_file(width) && "/p/#{dc.photo_file(width)}"
+    def base_url = "https://#{ENV.fetch('BINGO_HOST', request.host)}"
+
+    # WebSite + ItemList of the card's datacenters, for rich results.
+    def json_ld(board, desc)
+      url = "#{base_url}/#{@locale}"
+      JSON.generate(
+        '@context' => 'https://schema.org',
+        '@graph' => [
+          { '@type' => 'WebSite', '@id' => "#{base_url}/#website", 'url' => "#{base_url}/",
+            'name' => t(:title), 'inLanguage' => Bingo::LOCALES,
+            'publisher' => { '@type' => 'Person', 'name' => 'asxpi', 'url' => 'https://asxp.io' } },
+          { '@type' => 'ItemList', 'url' => url, 'name' => t(:seo_title), 'description' => desc,
+            'inLanguage' => @locale, 'numberOfItems' => board.cells.size,
+            'itemListElement' => board.cells.each_with_index.map do |dc, i|
+              place = { '@type' => 'Place', 'name' => dc.l(:name, @locale),
+                        'address' => { '@type' => 'PostalAddress', 'addressLocality' => dc.l(:city, @locale), 'addressCountry' => 'RU' } }
+              place['image'] = "#{base_url}#{photo_path(dc, 1200)}" if dc.photo_key
+              place['sameAs'] = dc.info_url if dc.info_url
+              { '@type' => 'ListItem', 'position' => i + 1, 'item' => place }
+            end }
+        ]
+      ).gsub('</', '<\/')
+    end
+
+    # Preview image: the most recent hit with a photo, else the first photo.
+    def og_photo(board)
+      dc = board.incidents.map(&:datacenter).find(&:photo_key) || board.cells.find(&:photo_key)
+      dc && "#{base_url}#{photo_path(dc, 1200)}"
+    end
     def fmt_date(d) = d.strftime('%d.%m.%Y')
 
     def mw(dc)
@@ -35,7 +67,20 @@ class BingoWeb < Sinatra::Base
   end
 
   get '/' do
+    headers 'Vary' => 'Accept-Language'
     redirect "/#{preferred_locale}", 302
+  end
+
+  get '/robots.txt' do
+    content_type 'text/plain'
+    "User-agent: *\nAllow: /\n\nSitemap: #{base_url}/sitemap.xml\n"
+  end
+
+  get '/sitemap.xml' do
+    content_type 'application/xml'
+    cache_control :public, max_age: 3600
+    @lastmod = Bingo::Board.load.updated_on
+    erb :sitemap, layout: false
   end
 
   get %r{/(ru|en|uk)/?} do |locale|

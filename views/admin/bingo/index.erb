@@ -76,6 +76,10 @@
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <button type="submit" class="link-button">↻ Import all missing photos from their source URLs</button>
     </form>
+    <form method="post" action="/admin/bingo/photos/rebuild">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit" class="link-button">⟳ Rebuild resized photos from stored originals</button>
+    </form>
     <form method="post" action="/admin/bingo/photos/import" onsubmit="return confirm('Re-download every photo that has a source URL? Manually uploaded photos with a source URL get replaced too.')">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <input type="hidden" name="all" value="1" />
@@ -90,7 +94,7 @@
                 <% end %>
                 <tr>
                     <td class="mono"><%= dc.position %></td>
-                    <td><% if dc.photo_file %><img src="/admin/bingo/p/<%= dc.photo_file %>" alt="" width="64" height="40" style="object-fit: cover" /><% else %>—<% end %></td>
+                    <td><% if dc.photo_file %><img src="/admin/bingo/p/<%= dc.photo_file(480) %>" alt="" width="64" height="40" style="object-fit: cover" /><% else %>—<% end %></td>
                     <td><%= dc.name_ru %><br /><span class="optional"><%= dc.city_ru %></span></td>
                     <td><%= dc.operator %></td>
                     <td class="num mono"><%= dc.mw %></td>
