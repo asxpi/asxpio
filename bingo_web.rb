@@ -97,7 +97,13 @@ class BingoWeb < Sinatra::Base
     erb :sitemap, layout: false
   end
 
-  get %r{/(ru|en|uk)/?} do |locale|
+  # One URL per page: /en/ is a duplicate of /en.
+  get %r{/(ru|en|uk)/} do |locale|
+    qs = request.query_string
+    redirect "/#{locale}#{"?#{qs}" unless qs.empty?}", 301
+  end
+
+  get %r{/(ru|en|uk)} do |locale|
     @locale = locale
     @view   = Bingo::VIEWS.include?(params[:view]) ? params[:view] : 'all'
     @board  = Bingo::Board.load(@view)

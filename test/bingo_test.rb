@@ -136,6 +136,7 @@ class BingoTest < Minitest::Test
     assert last_response.ok?
     assert_includes last_response.body, 'noindex, follow'
     assert_includes last_response.body, 'href="/en?view=operational"'  # language links keep the view
+    assert_includes last_response.body, '<a href="/ru?view=operational" aria-current="page">'  # followed internal link
     assert_includes last_response.body, 'rel="canonical" href="https://example.org/ru"'
     get '/ru?view=bogus'
     assert_includes last_response.body, 'index, follow, max-image-preview'
@@ -181,6 +182,12 @@ class BingoTest < Minitest::Test
     assert_equal 404, last_response.status
     get '/pgp.pub'
     assert_equal 404, last_response.status
+  end
+
+  def test_trailing_slash_redirects
+    get '/en/', view: 'operational'
+    assert_equal 301, last_response.status
+    assert_equal 'http://example.org/en?view=operational', last_response.location
   end
 
   def test_root_varies_on_language
