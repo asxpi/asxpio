@@ -181,7 +181,7 @@ All colors in `public/style.css` are CSS custom properties on `:root` (design to
 | `CRYPTO_ADDRESSES`       | JSON object (`CryptoAsset` code => payout address) prefilled per coin into the new-invoice form | Not confidential (printed on invoices + QR), but kept as a secret so rotation is a one-place change. Update secret + push. Existing invoices keep their captured address. |
 | `LTC_ADDRESS`            | Legacy: fills the LTC default when `CRYPTO_ADDRESSES` has no LTC entry  | Same as above. Can be folded into `CRYPTO_ADDRESSES` and removed.                                |
 | `DEPLOY_IP/USER/SSH_KEY` | SSH to prod from CI                                                      | Standard SSH key rotation.                                                                       |
-| `FORGEJO_REGISTRY/USER/TOKEN` | Kaniko registry auth                                                | Forgejo token rotation.                                                                          |
+| `FORGEJO_REGISTRY/USER`, `FJ_TOKEN` | Kaniko registry auth. Token needs `write:package` + `read:repository`; named `FJ_` because Forgejo forbids new secrets prefixed `FORGEJO_` | Forgejo token rotation.                                                                          |
 
 **Non-secret config that lives in the workflow** (not in `.env.example`, not in secrets): `SMTP_ADDR`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`, `MAIL_TO`, `DATABASE_URL` host portion, `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_BUCKET`. Change these by editing `.forgejo/workflows/deploy.yaml`.
 
