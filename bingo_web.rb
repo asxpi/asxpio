@@ -111,6 +111,16 @@ class BingoWeb < Sinatra::Base
     erb :index
   end
 
+  # Icons from assets/bingo/ (public/ is asxp.io's). Search engines want
+  # a crawlable favicon URL; a data: URI doesn't count.
+  ICONS = { 'favicon.svg' => 'image/svg+xml', 'favicon.ico' => 'image/x-icon',
+            'apple-touch-icon.png' => 'image/png' }.freeze
+
+  get %r{/(favicon\.svg|favicon\.ico|apple-touch-icon\.png)} do |name|
+    cache_control :public, max_age: 86_400
+    send_file File.join(settings.root, 'assets', 'bingo', name), type: ICONS[name]
+  end
+
   # Photos are immutable per key (a new upload gets a new key).
   get '/p/:file' do
     bytes, type = Bingo::Photo.read(params[:file])

@@ -190,6 +190,17 @@ class BingoTest < Minitest::Test
     assert_equal 'http://example.org/en?view=operational', last_response.location
   end
 
+  def test_icons
+    { '/favicon.svg' => 'image/svg+xml', '/favicon.ico' => 'image/x-icon',
+      '/apple-touch-icon.png' => 'image/png' }.each do |path, type|
+      get path
+      assert last_response.ok?, path
+      assert_equal type, last_response.content_type
+    end
+    get '/en'
+    assert_includes last_response.body, '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
+  end
+
   def test_root_varies_on_language
     get '/'
     assert_equal 'Accept-Language', last_response.headers['Vary']
