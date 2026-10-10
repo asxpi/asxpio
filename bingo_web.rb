@@ -2,13 +2,15 @@
 # AsxpioWeb (config.ru dispatches by Host). Read-only: no session, no CSRF.
 # Content is managed from asxp.io/admin/bingo (lib/bingo_admin.rb).
 class BingoWeb < Sinatra::Base
+  HOSTS = [ENV['BINGO_HOST'], ENV['BINGO_ALT_HOST']].compact.reject(&:empty?).freeze
+
   configure do
     set :root, $root
     set :views, File.join($root, 'views', 'bingo')
     set :erb, layout: :layout, escape_html: true
     set :show_exceptions, $env == 'development'
     set :host_authorization,
-        { permitted_hosts: $env == 'production' && ENV['BINGO_HOST'] ? [ENV['BINGO_HOST']] : [] }
+        { permitted_hosts: $env == 'production' ? HOSTS : [] }
   end
 
   helpers do

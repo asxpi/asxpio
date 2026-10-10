@@ -62,7 +62,10 @@
     </ul>
   </section>
 
-  <footer><%= t(:footer) %></footer>
+  <footer>
+    <p><%= t(:footer) %></p>
+    <p>© <%= Date.today.year %> <a href="https://asxp.io">asxp.io</a></p>
+  </footer>
 </main>
 
 <% b.cells.each do |dc| %>

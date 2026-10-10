@@ -140,6 +140,7 @@ jobs:
             LTC_ADDRESS=${LTC_ADDRESS}
             CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
             BINGO_HOST=datacenterbingo.xyz
+            BINGO_ALT_HOST=bingo.asxp.io
             EOF
             chmod 600 /opt/asxpio/.env
 
