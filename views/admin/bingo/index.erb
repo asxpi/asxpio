@@ -71,6 +71,11 @@
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <button type="submit" class="link-button">↻ Import all missing photos from their source URLs</button>
     </form>
+    <form method="post" action="/admin/bingo/photos/import" onsubmit="return confirm('Re-download every photo that has a source URL? Manually uploaded photos with a source URL get replaced too.')">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <input type="hidden" name="all" value="1" />
+        <button type="submit" class="link-button">↻ Re-import all photos from their source URLs</button>
+    </form>
     <table class="invoice-list">
         <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Operator</th><th class="num">MW</th><th>Status</th><th class="num">Incidents</th><th></th></tr></thead>
         <tbody>

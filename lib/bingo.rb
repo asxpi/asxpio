@@ -135,9 +135,72 @@ module Bingo
       bytes = bytes.b
       raise Error, 'image too large (max 8 MB)' if bytes.bytesize > MAX_BYTES
       ext = sniff(bytes) or raise Error, 'not a JPEG, PNG or WebP image'
+      bytes = strip_metadata(bytes, ext)
       key = "#{PREFIX}#{slug}-#{SecureRandom.hex(4)}.#{ext}"
       S3.put(key, bytes, content_type: TYPES[ext])
       key
+    end
+
+    # Photos are served byte-for-byte, so drop EXIF/XMP/IPTC/text metadata:
+    # phone shots carry GPS coordinates, and the card stays city-level.
+    # Pixel data is untouched; malformed input is rejected rather than
+    # passed through.
+    def strip_metadata(bytes, ext)
+      case ext
+      when 'jpg'  then strip_jpeg(bytes)
+      when 'png'  then strip_png(bytes)
+      when 'webp' then strip_webp(bytes)
+      end
+    end
+
+    JPEG_DROP = [0xE1, *0xE3..0xEF, 0xFE].freeze # APP1 (Exif/XMP), APP3-15 (IPTC...), COM
+
+    def strip_jpeg(b)
+      out = +"\xFF\xD8".b
+      i = 2
+      while i < b.bytesize
+        raise Error, 'corrupt JPEG' unless b.getbyte(i) == 0xFF
+        marker = b.getbyte(i + 1)
+        if marker == 0xFF then i += 1; next end # fill byte
+        if marker == 0xDA || marker == 0xD9     # start of scan: rest is image data
+          return out << b.byteslice(i..)
+        end
+        len = b.byteslice(i + 2, 2)&.unpack1('n') or raise Error, 'corrupt JPEG'
+        out << b.byteslice(i, len + 2) unless JPEG_DROP.include?(marker)
+        i += len + 2
+      end
+      raise Error, 'corrupt JPEG'
+    end
+
+    PNG_DROP = %w[eXIf tEXt iTXt zTXt tIME].freeze
+
+    def strip_png(b)
+      out = b.byteslice(0, 8)
+      i = 8
+      while i + 8 <= b.bytesize
+        len, type = b.byteslice(i, 8).unpack('Na4')
+        out << b.byteslice(i, len + 12) unless PNG_DROP.include?(type)
+        i += len + 12
+        return out if type == 'IEND'
+      end
+      raise Error, 'corrupt PNG'
+    end
+
+    def strip_webp(b)
+      body = +''.b
+      i = 12
+      while i + 8 <= b.bytesize
+        type, len = b.byteslice(i, 8).unpack('a4V')
+        chunk = b.byteslice(i, 8 + len + (len & 1))
+        if type == 'VP8X'
+          chunk = chunk.dup
+          chunk.setbyte(8, chunk.getbyte(8) & ~0x0C) # clear EXIF + XMP flags
+        end
+        body << chunk unless %w[EXIF XMP\ ].include?(type)
+        i += 8 + len + (len & 1)
+      end
+      raise Error, 'corrupt WebP' if body.empty?
+      'RIFF'.b + [body.bytesize + 4].pack('V') + 'WEBP'.b + body
     end
 
     # Admin-only "import from URL". https only, a few redirects, size-capped.
@@ -146,7 +209,8 @@ module Bingo
       raise Error, 'https URL required' unless uri.is_a?(URI::HTTPS)
       Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 5, read_timeout: 15) do |http|
         req = Net::HTTP::Get.new(uri)
-        req['User-Agent'] = 'Mozilla/5.0 (bingo photo import)'
+        # Wikimedia rate-limits generic agents; its policy wants name + contact.
+        req['User-Agent'] = 'asxpio-bingo/1.0 (https://asxp.io; ie@asxp.io)'
         http.request(req) do |res|
           case res
           when Net::HTTPRedirection

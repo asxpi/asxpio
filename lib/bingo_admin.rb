@@ -87,10 +87,13 @@ module BingoAdmin
       redirect "/admin/bingo/dc/#{dc.id}"
     end
 
-    # Bulk: import every missing photo from its photo_source_url.
+    # Bulk: import every missing photo from its photo_source_url, or with
+    # all=1 re-import every photo that has a source URL.
     app.post '/admin/bingo/photos/import' do
       ok, failed = 0, []
-      Bingo::Datacenter.where(photo_key: nil).exclude(photo_source_url: nil).each do |dc|
+      scope = Bingo::Datacenter.exclude(photo_source_url: nil)
+      scope = scope.where(photo_key: nil) unless params[:all] == '1'
+      scope.each do |dc|
         dc.update(photo_key: Bingo::Photo.store(dc.slug, Bingo::Photo.fetch(dc.photo_source_url)))
         ok += 1
       rescue Bingo::Photo::Error => e

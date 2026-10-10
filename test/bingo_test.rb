@@ -3,7 +3,8 @@ require_relative 'test_helper'
 class BingoTest < Minitest::Test
   include Rack::Test::Methods
 
-  JPEG = "\xFF\xD8\xFF\xE0fakejpeg".b
+  # Minimal well-formed JPEG: SOI, start-of-scan, data, EOI.
+  JPEG = ("\xFF\xD8\xFF\xDA".b + [8].pack('n') + "\1\2\3\4\5\6data\xFF\xD9".b).freeze
 
   def app
     @app || BingoWeb
@@ -82,6 +83,34 @@ class BingoTest < Minitest::Test
   ensure
     Aws.config[:s3] = { stub_responses: true }
     S3.instance_variable_set(:@client, nil)
+  end
+
+  def test_strips_jpeg_exif
+    exif = "\xFF\xE1".b + [17].pack('n') + "Exif\0\0GPSDATA!!".b
+    jfif = "\xFF\xE0".b + [16].pack('n') + "JFIF\0".b + ("\0" * 9).b
+    scan = "\xFF\xDA".b + [8].pack('n') + "\1\2\3\4\5\6pixels\xFF\xD9".b
+    out = Bingo::Photo.strip_metadata("\xFF\xD8".b + jfif + exif + scan, 'jpg')
+    refute_includes out, 'GPSDATA'
+    assert_equal "\xFF\xD8".b + jfif + scan, out
+  end
+
+  def test_strips_png_text_chunks
+    chunk = ->(type, data) { [data.bytesize].pack('N') + type + data + "\0\0\0\0".b }
+    sig  = "\x89PNG\r\n\x1A\n".b
+    ihdr = chunk.('IHDR', "\0" * 13)
+    out  = Bingo::Photo.strip_metadata(sig + ihdr + chunk.('eXIf', 'GPS') + chunk.('tEXt', 'k\0v') + chunk.('IEND', ''), 'png')
+    assert_equal sig + ihdr + chunk.('IEND', ''), out
+  end
+
+  def test_strips_webp_exif
+    vp8x = 'VP8X'.b + [10].pack('V') + [0x08 | 0x10].pack('C') + ("\0" * 9).b # EXIF + alpha flags
+    img  = 'VP8L'.b + [5].pack('V') + "abcde\0".b
+    exif = 'EXIF'.b + [3].pack('V') + "GPS\0".b
+    body = vp8x + img + exif
+    out  = Bingo::Photo.strip_metadata('RIFF'.b + [body.bytesize + 4].pack('V') + 'WEBPh'.b[0, 4] + body, 'webp')
+    refute_includes out, 'GPS'
+    assert_equal 0x10, out.getbyte(20) # alpha kept, EXIF flag cleared
+    assert_equal out.bytesize - 8, out.byteslice(4, 4).unpack1('V')
   end
 
   def test_photo_rejects_non_images
