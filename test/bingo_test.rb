@@ -216,6 +216,12 @@ class BingoTest < Minitest::Test
     assert_includes last_response.body, '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
   end
 
+  def test_hsts
+    get '/en'
+    assert_equal 'max-age=31536000', last_response.headers['strict-transport-security']
+    assert_equal 'nosniff', last_response.headers['x-content-type-options']
+  end
+
   def test_root_varies_on_language
     get '/'
     assert_equal 'Accept-Language', last_response.headers['Vary']

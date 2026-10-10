@@ -12,6 +12,8 @@ class BingoWeb < Sinatra::Base
     # the card needs none of it.
     set :static, false
     set :show_exceptions, $env == 'development'
+    # HSTS (1 year, this host only); http:// already 308s at the edge.
+    set :protection, use: %i[strict_transport]
     set :host_authorization,
         { permitted_hosts: $env == 'production' ? HOSTS : [] }
   end
