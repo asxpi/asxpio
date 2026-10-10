@@ -1,0 +1,23 @@
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1>Audit log</h1>
+    <p class="tagline"><a href="/admin/users">← users</a> · last <%= @entries.size %> entries</p>
+</div>
+
+<section class="section">
+    <table class="invoice-list">
+        <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th><th>IP</th></tr></thead>
+        <tbody>
+            <% @entries.each do |e| %>
+                <tr>
+                    <td class="mono"><%= e[:created_at].strftime('%Y-%m-%d %H:%M') %></td>
+                    <td><%= e[:username] || '—' %></td>
+                    <td class="mono"><%= e[:action] %></td>
+                    <td><%= e[:target] %></td>
+                    <td class="optional"><%= e[:detail] %></td>
+                    <td class="mono optional"><%= e[:ip] %></td>
+                </tr>
+            <% end %>
+        </tbody>
+    </table>
+</section>

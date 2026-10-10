@@ -1,0 +1,16 @@
+<div class="header">
+    <h1>Reset password</h1>
+    <p class="tagline"><a href="/admin/login">← log in</a></p>
+</div>
+
+<section class="section">
+    <% if @sent %>
+        <p>If an account with an email address matches, a reset link is on its way. It works once and expires in 1 hour.</p>
+    <% else %>
+        <form class="invoice-form auth-form" method="post" action="/admin/reset">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <div class="field"><label for="login">Username or email</label><input type="text" id="login" name="login" autocomplete="username" autocapitalize="none" required autofocus /></div>
+            <button type="submit" class="download-button">Send reset link</button>
+        </form>
+    <% end %>
+</section>

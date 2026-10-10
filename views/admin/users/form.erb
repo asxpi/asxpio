@@ -1,0 +1,76 @@
+<% fresh = @user.new? %>
+<% editable = can?('users', 'write') && (!@user.superuser || current_user.superuser) %>
+<% self_edit = !fresh && @user.id == current_user.id %>
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1><%= fresh ? 'New user' : @user.username %></h1>
+    <p class="tagline"><a href="/admin/users">← users</a></p>
+</div>
+
+<% if @error || @flash %><div class="form-error-base"><div><%= @error || @flash %></div></div><% end %>
+
+<section class="section">
+    <form class="invoice-form" method="post" action="<%= fresh ? '/admin/users' : "/admin/users/#{@user.id}" %>" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <fieldset class="plain" <%= 'disabled' unless editable %>>
+        <div class="invoice-grid">
+            <div class="field"><label for="username">Username</label><input type="text" id="username" name="username" value="<%= @user.username %>" <%= fresh ? 'required pattern=[a-z0-9][a-z0-9_.@-]{1,63}' : 'disabled' %> /></div>
+            <div class="field"><label for="name">Name <span class="optional">(optional)</span></label><input type="text" id="name" name="name" value="<%= @user.name %>" /></div>
+            <div class="field"><label for="email">Email <span class="optional">(for invite and password reset)</span></label><input type="email" id="email" name="email" value="<%= @user.email %>" /></div>
+        </div>
+
+        <% unless fresh %>
+            <div class="field"><label><input type="checkbox" name="active" value="1" <%= 'checked' if @user.active %> <%= 'disabled' if self_edit %> /> Active <span class="optional">(unticking logs the user out)</span></label></div>
+        <% end %>
+        <% if current_user.superuser %>
+            <div class="field"><label><input type="checkbox" name="superuser" value="1" id="superuser" <%= 'checked' if @user.superuser %> <%= 'disabled' if self_edit %> /> Superuser <span class="optional">(everything, incl. managing superusers; permissions below are ignored)</span></label></div>
+        <% end %>
+
+        <h2>Permissions</h2>
+        <table class="invoice-list perm-grid">
+            <thead><tr><th>Area</th><% User::PERMS.each do |f| %><th><%= f %></th><% end %></tr></thead>
+            <tbody>
+                <% User::AREAS.each do |area| %>
+                    <tr>
+                        <td><%= area %></td>
+                        <% User::PERMS.each do |f| %>
+                            <td><input type="checkbox" name="perm[<%= area %>][<%= f %>]" value="1" data-area="<%= area %>" data-flag="<%= f %>"
+                                       <%= 'checked' if !fresh && @user.can?(area, f) %> <%= 'disabled' unless current_user.can?(area, f) %> /></td>
+                        <% end %>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+        <p class="optional">You can only grant permissions you hold yourself. Delete implies read.</p>
+
+        <% if editable %><button type="submit" class="download-button"><%= fresh ? 'Create and send invite' : 'Save' %></button><% end %>
+        </fieldset>
+    </form>
+</section>
+
+<% if !fresh && editable %>
+<section class="section">
+    <form method="post" action="/admin/users/<%= @user.id %>/invite">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit" class="link-button"><%= @user.password_digest ? '✉ Send password reset link' : '✉ Resend invite' %></button>
+    </form>
+</section>
+<% end %>
+
+<% if !fresh && !self_edit && can?('users', 'delete') && (!@user.superuser || current_user.superuser) %>
+<section class="section">
+    <h2>Danger zone</h2>
+    <form method="post" action="/admin/users/<%= @user.id %>/delete" onsubmit="return confirm('Delete this user? This cannot be undone.')">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit" class="link-button">delete this user</button>
+    </form>
+</section>
+<% end %>
+
+<script>
+  // Delete implies read: keep the read box ticked when delete is.
+  document.querySelectorAll('[data-flag="delete"]').forEach(d => d.addEventListener('change', () => {
+    const r = document.querySelector(`[data-area="${d.dataset.area}"][data-flag="read"]`);
+    if (d.checked && r && !r.disabled) r.checked = true;
+  }));
+</script>

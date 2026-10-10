@@ -72,6 +72,7 @@ module BingoAdmin
       @dc.position = Bingo::Datacenter.count + 1
       @dc.save
       Bingo.place!(@dc, position_param)
+      audit!('bingo.dc_create', @dc.slug, "##{@dc.refresh.position} #{@dc.name_ru}")
       session[:bingo_flash] = "Added #{@dc.name_ru} at ##{@dc.refresh.position}."
       redirect "/admin/bingo/dc/#{@dc.id}"
     end
@@ -90,6 +91,7 @@ module BingoAdmin
       if errs.empty?
         dc.save_changes
         Bingo.place!(dc, position_param) if position_param && position_param != dc.position
+        audit!('bingo.dc_update', dc.slug, dc.name_ru)
         session[:bingo_flash] = 'Saved.'
       else
         session[:bingo_flash] = errs.join('; ')
@@ -106,12 +108,14 @@ module BingoAdmin
         dc.destroy
         Bingo.renumber!
       end
+      audit!('bingo.dc_delete', dc.slug, "#{dc.name_ru}, #{n} incident(s)")
       session[:bingo_flash] = "Deleted #{dc.name_ru}#{" and #{n} incident(s)" if n.positive?}."
       redirect '/admin/bingo'
     end
 
     app.post '/admin/bingo/sort' do
       Bingo.sort_by_mw!
+      audit!('bingo.sort_by_mw')
       session[:bingo_flash] = 'Sorted by MW (unknown last).'
       redirect '/admin/bingo'
     end
@@ -130,6 +134,7 @@ module BingoAdmin
           end
         dc.save_changes
         Bingo::Photo.attach(dc, bytes)
+        audit!('bingo.photo_store', dc.slug, dc.photo_source_url)
         session[:bingo_flash] = dc.photo_variants ? 'Photo stored.' : 'Photo stored (no resized variants; check logs).'
       rescue Bingo::Photo::Error => e
         session[:bingo_flash] = "Photo failed: #{e.message}"
@@ -140,6 +145,7 @@ module BingoAdmin
     app.post '/admin/bingo/dc/:id/photo/delete' do
       dc = Bingo::Datacenter[params[:id].to_i] or halt 404
       dc.update(photo_key: nil, photo_variants: false)
+      audit!('bingo.photo_remove', dc.slug)
       session[:bingo_flash] = 'Photo removed from card (object kept in bucket).'
       redirect "/admin/bingo/dc/#{dc.id}"
     end
@@ -156,6 +162,7 @@ module BingoAdmin
       rescue Bingo::Photo::Error => e
         failed << "#{dc.slug}: #{e.message}"
       end
+      audit!('bingo.photos_import', params[:all] == '1' ? 'all' : 'missing', "#{ok} ok, #{failed.size} failed")
       session[:bingo_flash] = (["Imported #{ok}."] + failed).join(' | ')
       redirect '/admin/bingo'
     end
@@ -171,6 +178,7 @@ module BingoAdmin
         $logger.error("bingo: rebuild #{dc.slug}: #{e.class}: #{e.message}")
       end
       failed = dcs.reject(&:photo_variants).map { |dc| errors[dc.slug] ? "#{dc.slug} (#{errors[dc.slug]})" : dc.slug }
+      audit!('bingo.photos_rebuild', nil, "#{dcs.size - failed.size}/#{dcs.size}")
       session[:bingo_flash] = "Rebuilt #{dcs.size - failed.size}/#{dcs.size}.#{" Failed: #{failed.join(', ')}" if failed.any?}"
       redirect '/admin/bingo'
     end
@@ -203,6 +211,7 @@ module BingoAdmin
           title_ru: params[:title_ru].strip, title_en: blank_nil(params[:title_en]),
           title_uk: blank_nil(params[:title_uk]), url: blank_nil(url)
         )
+        audit!('bingo.incident_create', dc.slug, "#{date} #{params[:kind]}: #{params[:title_ru].strip}")
         session[:bingo_flash] = "Incident recorded for #{dc.name_ru}."
       else
         session[:bingo_flash] = errs.join('; ')
@@ -211,7 +220,9 @@ module BingoAdmin
     end
 
     app.post '/admin/bingo/incidents/:id/delete' do
+      inc = Bingo::Incident[params[:id].to_i]
       Bingo::Incident.where(id: params[:id].to_i).delete
+      audit!('bingo.incident_delete', inc&.datacenter&.slug, inc && "#{inc.occurred_on} #{inc.title_ru}")
       session[:bingo_flash] = 'Incident deleted.'
       redirect '/admin/bingo'
     end

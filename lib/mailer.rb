@@ -69,4 +69,33 @@ module Mailer
       body       body
     end
   end
+
+  # Invite / password-reset email with a one-time link.
+  def account_link(to:, username:, url:, kind:)
+    from = ENV.fetch('MAIL_FROM')
+    subj, intro, ttl =
+      if kind == 'invite'
+        ['Your asxp.io admin account', "An account \"#{username}\" was created for you on the asxp.io admin.\nSet your password here:", '48 hours']
+      else
+        ['Reset your asxp.io admin password', "Someone (hopefully you) asked to reset the password for \"#{username}\".\nSet a new one here:", '1 hour']
+      end
+    body = <<~BODY
+      #{intro}
+
+      #{url}
+
+      The link works once and expires in #{ttl}. If you didn't expect this
+      email, ignore it.
+
+      --
+      asxp.io
+    BODY
+
+    Mail.deliver do
+      from    from
+      to      to
+      subject subj
+      body    body
+    end
+  end
 end

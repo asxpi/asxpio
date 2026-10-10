@@ -54,6 +54,10 @@ module AdminAuth
         Rack::Utils.secure_compare(p, pass.to_s)
     end
 
+    def audit!(action, target = nil, detail = nil, user: current_user)
+      Audit.log(action: action, user: user, target: target, detail: detail, ip: client_ip)
+    end
+
     def safe_next(target)
       target.to_s.match?(%r{\A/admin(/[\w\-/]*)?\z}) ? target : '/admin'
     end
@@ -102,12 +106,15 @@ module AdminAuth
         user.password = ENV['ADMIN_PASSWORD']
         user.save
         $logger.warn("users: emergency login restored superuser #{name} from #{client_ip}")
+        audit!('auth.emergency_login', name, user: user)
       end
       if user
         log_in!(user)
+        audit!('auth.login')
         redirect @next
       else
         $logger.info("users: failed login for #{params[:username].to_s[0, 64].inspect} from #{client_ip}")
+        Audit.log(action: 'auth.login_failed', username: params[:username].to_s[0, 64], ip: client_ip)
         @error = 'Wrong username or password.'
         status 401
         erb :'admin/login'
@@ -115,6 +122,7 @@ module AdminAuth
     end
 
     app.post '/admin/logout' do
+      audit!('auth.logout') if current_user
       session.clear
       redirect '/admin/login'
     end
@@ -143,6 +151,7 @@ module AdminAuth
       u.session_version += 1 # other sessions out
       u.save
       log_in!(u)
+      audit!('auth.password_changed')
       redirect '/admin'
     end
   end

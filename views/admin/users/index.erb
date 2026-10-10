@@ -1,0 +1,37 @@
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1>Users</h1>
+    <p class="tagline">
+        <% if can?('users', 'write') %><a href="/admin/users/new">+ New user</a> · <% end %><a href="/admin/audit">audit log</a>
+    </p>
+</div>
+
+<% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
+<% if @link %>
+    <section class="section">
+        <p><%= @link['kind'] == 'invite' ? 'Invite' : 'Password reset' %> link<%= @link['sent'] ? " emailed to #{@link['to']}" : (@link['to'] ? " — email to #{@link['to']} FAILED, send it yourself" : ' (no email on file — send it yourself)') %>.
+        Shown once; it works once and expires in <%= @link['kind'] == 'invite' ? '48 hours' : '1 hour' %>:</p>
+        <p class="mono" style="word-break: break-all"><%= @link['url'] %></p>
+    </section>
+<% end %>
+
+<section class="section">
+    <table class="invoice-list">
+        <thead><tr><th>User</th><th>Access</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+        <tbody>
+            <% @users.each do |u| %>
+                <tr>
+                    <td><b><%= u.username %></b><% if u.name.to_s != '' %><br /><span class="optional"><%= u.name %></span><% end %><% if u.email %><br /><span class="optional"><%= u.email %></span><% end %></td>
+                    <td><%= perm_summary(u) %></td>
+                    <td>
+                        <% if !u.active %><span class="badge badge-pending">disabled</span>
+                        <% elsif !u.password_digest %><span class="badge badge-pending">invited</span>
+                        <% else %><span class="badge badge-paid">active</span><% end %>
+                    </td>
+                    <td class="mono"><%= u.last_login_at&.strftime('%Y-%m-%d %H:%M') || '—' %></td>
+                    <td class="actions"><a href="/admin/users/<%= u.id %>"><%= can?('users', 'write') ? 'edit' : 'view' %></a></td>
+                </tr>
+            <% end %>
+        </tbody>
+    </table>
+</section>

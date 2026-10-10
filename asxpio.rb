@@ -24,6 +24,7 @@ require_relative 'lib/db'
 require_relative 'lib/admin_auth'
 require_relative 'lib/s3'
 require_relative 'lib/bingo_admin'
+require_relative 'lib/users_admin'
 
 # Invoice model needs a live Sequel connection at class-definition time.
 if ENV['DATABASE_URL']
@@ -38,6 +39,7 @@ if ENV['DATABASE_URL']
   require_relative 'lib/bingo'
   Bingo.seed!
   require_relative 'lib/user'
+  require_relative 'lib/audit'
   User.bootstrap!(ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD'])
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
@@ -67,6 +69,7 @@ class AsxpioWeb < Sinatra::Base
   use Rack::Protection::AuthenticityToken
   register AdminAuth
   register BingoAdmin
+  register UsersAdmin
 
   Mailer.configure!
 
@@ -288,6 +291,7 @@ class AsxpioWeb < Sinatra::Base
       retry
     end
 
+    audit!('invoice.create', invoice.number, "#{invoice.client_name}, #{invoice.currency} #{'%.2f' % invoice.total}")
     redirect "/admin/invoices/#{invoice.uuid}"
   end
 
@@ -302,6 +306,7 @@ class AsxpioWeb < Sinatra::Base
     invoice = Invoice[uuid: params[:uuid]] or halt 404
     invoice.paid_at = invoice.paid? ? nil : Time.now.utc
     invoice.save_changes
+    audit!(invoice.paid? ? 'invoice.paid' : 'invoice.unpaid', invoice.number)
     redirect "/admin/invoices/#{invoice.uuid}"
   end
 

@@ -85,3 +85,30 @@ class UserPermission < Sequel::Model(:user_permissions)
   unrestrict_primary_key
   many_to_one :user
 end
+
+# One-time invite / reset links; see migration 008.
+class UserToken < Sequel::Model(:user_tokens)
+  TTL = { 'invite' => 48 * 3600, 'reset' => 3600 }.freeze
+
+  many_to_one :user
+
+  def self.digest(raw) = OpenSSL::Digest::SHA256.hexdigest(raw.to_s)
+
+  # Returns the raw token; earlier unused tokens of the same purpose die.
+  def self.issue!(user, purpose)
+    where(user_id: user.id, purpose: purpose, used_at: nil).delete
+    raw = SecureRandom.urlsafe_base64(32)
+    create(user_id: user.id, purpose: purpose, token_digest: digest(raw),
+           expires_at: Time.now.utc + TTL.fetch(purpose), created_at: Time.now.utc)
+    raw
+  end
+
+  def self.find_valid(raw, purpose)
+    t = self[token_digest: digest(raw), purpose: purpose]
+    t if t && t.used_at.nil? && t.expires_at > Time.now && t.user&.active
+  end
+
+  def use!
+    update(used_at: Time.now.utc)
+  end
+end
