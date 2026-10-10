@@ -8,6 +8,10 @@ bingo      = BingoWeb.new
 bingo_host = ENV['BINGO_HOST']
 
 run lambda { |env|
-  host = Rack::Request.new(env).host
-  (bingo_host && host == bingo_host ? bingo : asxpio).call(env)
+  req = Rack::Request.new(env)
+  if bingo_host && req.host == "www.#{bingo_host}"
+    [301, { 'location' => "https://#{bingo_host}#{req.fullpath}" }, []]
+  else
+    (bingo_host && req.host == bingo_host ? bingo : asxpio).call(env)
+  end
 }

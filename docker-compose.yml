@@ -20,7 +20,7 @@ services:
       - "traefik.http.services.asxpio.loadbalancer.server.port=3000"
       # Datacenter bingo: same container, routed by Host in config.ru.
       # BINGO_HOST is interpolated from /opt/asxpio/.env (written by deploy).
-      - "traefik.http.routers.asxpio-bingo.rule=Host(`${BINGO_HOST}`)"
+      - "traefik.http.routers.asxpio-bingo.rule=Host(`${BINGO_HOST}`) || Host(`www.${BINGO_HOST}`)"
       - "traefik.http.routers.asxpio-bingo.entrypoints=websecure"
       - "traefik.http.routers.asxpio-bingo.tls=true"
       - "traefik.http.routers.asxpio-bingo.tls.certresolver=letsencrypt"

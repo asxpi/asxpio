@@ -139,7 +139,7 @@ jobs:
             S3_SECRET_KEY=${ASXPIO_S3_SECRET_KEY}
             LTC_ADDRESS=${LTC_ADDRESS}
             CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
-            BINGO_HOST=bingo.asxp.io
+            BINGO_HOST=datacenterbingo.xyz
             EOF
             chmod 600 /opt/asxpio/.env
 
