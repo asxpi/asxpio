@@ -36,6 +36,7 @@ if ENV['DATABASE_URL']
   require_relative 'lib/crypto_qr'
   require_relative 'lib/gel_rate'
   require_relative 'lib/invoice_pdf'
+  require_relative 'lib/invoice_stats'
   require_relative 'lib/bingo'
   Bingo.seed!
   require_relative 'lib/user'
@@ -223,6 +224,14 @@ class AsxpioWeb < Sinatra::Base
   end
 
   # Defined before /admin/invoices/:uuid, which would otherwise match it.
+  get '/admin/invoices/stats' do
+    @page_title = 'Invoice statistics · admin'
+    @noindex    = true
+    year   = params[:year].to_s =~ /\A\d{4}\z/ ? params[:year].to_i : nil
+    @stats = InvoiceStats.new(visible_invoices.all, year: year)
+    erb :'admin/invoices/stats'
+  end
+
   get '/admin/invoices/payout-addresses' do
     @page_title = 'Payout addresses · admin'
     @noindex    = true

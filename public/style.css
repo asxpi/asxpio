@@ -74,6 +74,7 @@
     --paid: #7AB97A;
     --paid-border: #234A23;
     --paid-bg: #142A14;
+    --chart-bar: #5B8FD9; /* single-series bars; validated vs --surface (dark) */
     --font-sans: 'IBM Plex Sans', 'Noto Sans Georgian', sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
 }
@@ -379,6 +380,29 @@ fieldset.plain { border: 0; margin: 0; padding: 0; min-width: 0; }
 }
 .stats b { display: block; font-size: 1.4rem; color: var(--text-bright); font-variant-numeric: tabular-nums; }
 .stats span { font-size: 0.75rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Invoice statistics */
+.year-filter { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 24px; }
+.year-filter a { padding: 2px 10px; border: 1px solid var(--border); border-radius: 3px; text-decoration: none; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.85rem; }
+.year-filter a.active { color: var(--text-bright); border-color: var(--text-ghost); background: var(--surface); }
+.stats-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stats b small { font-size: 0.7rem; color: var(--text-faint); font-weight: 400; }
+.bar-chart { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin: 12px 0 0; height: 200px; }
+.bar-axis { display: flex; flex-direction: column; justify-content: space-between; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1; color: var(--text-faint); text-align: right; }
+.bar-axis span:first-child { transform: translateY(-50%); } /* centre on the top gridline */
+.bar-axis span:last-child { transform: translateY(50%); }   /* centre on the baseline */
+.bars { display: flex; align-items: stretch; gap: 2px; border-bottom: 1px solid var(--border); position: relative; }
+.bar-col { flex: 1 1 0; position: relative; display: flex; flex-direction: column; justify-content: flex-end; outline: none; padding-bottom: 20px; margin-bottom: -20px; }
+.bar { background: var(--chart-bar); border-radius: 4px 4px 0 0; min-height: 0; }
+.bar-label { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 0.65rem; color: var(--text-faint); overflow: hidden; white-space: nowrap; }
+.bar-col:hover .bar, .bar-col:focus .bar { filter: brightness(1.2); }
+.bar-col:hover::after, .bar-col:focus::after {
+    content: attr(data-tip); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    background: var(--surface-alt); border: 1px solid var(--border-strong); color: var(--text-bright);
+    padding: 4px 8px; border-radius: 3px; font-size: 0.75rem; font-family: var(--font-mono); white-space: nowrap; z-index: 2; pointer-events: none;
+}
+.bar-col { height: 100%; }
+@media (max-width: 560px) { .stats-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* Invoices */
 .invoice-list {
