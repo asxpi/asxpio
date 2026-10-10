@@ -397,6 +397,45 @@ module Bingo
     end
   end
 
+  # Tells IndexNow engines (Bing, Yandex, Seznam, ...) which bingo URLs
+  # changed, so new incidents get recrawled within minutes. The key comes
+  # from INDEXNOW_KEY and BingoWeb serves it at /<key>.txt; without the key
+  # or BINGO_HOST (dev, tests) this does nothing.
+  module IndexNow
+    ENDPOINT = URI('https://api.indexnow.org/indexnow')
+
+    module_function
+
+    def key  = ENV['INDEXNOW_KEY'].to_s[/\A[A-Za-z0-9-]{8,128}\z/]
+    def host = ENV['BINGO_HOST'].to_s[/\A\S+\z/]
+
+    # The card in every locale plus the pages of the given datacenters.
+    def urls(dcs = [])
+      paths = LOCALES.map { |l| "/#{l}" } + dcs.flat_map { |dc| LOCALES.map { |l| "/#{l}/dc/#{dc.slug}" } }
+      paths.map { |p| "https://#{host}#{p}" }
+    end
+
+    def payload(dcs = [])
+      { host: host, key: key, keyLocation: "https://#{host}/#{key}.txt", urlList: urls(dcs) }
+    end
+
+    # Fire and forget: an admin save doesn't wait on a third party.
+    def ping(dcs = [])
+      return unless key && host
+      body = JSON.generate(payload(dcs))
+      Thread.new { deliver(body) }
+    end
+
+    def deliver(body)
+      res = Net::HTTP.start(ENDPOINT.host, ENDPOINT.port, use_ssl: true, open_timeout: 5, read_timeout: 10) do |http|
+        http.post(ENDPOINT.path, body, 'Content-Type' => 'application/json; charset=utf-8')
+      end
+      $logger.warn("bingo: IndexNow answered #{res.code}") unless res.is_a?(Net::HTTPSuccess)
+    rescue StandardError => e
+      $logger.warn("bingo: IndexNow #{e.class}: #{e.message}")
+    end
+  end
+
   # Positions stay dense 1..N; the card shows the first SIZE*SIZE, the rest
   # wait in reserve. Placing a datacenter inserts it at pos (default: last)
   # and shifts everyone after it.

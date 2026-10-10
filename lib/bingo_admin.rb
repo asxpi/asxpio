@@ -73,6 +73,7 @@ module BingoAdmin
       @dc.save
       Bingo.place!(@dc, position_param)
       audit!('bingo.dc_create', @dc.slug, "##{@dc.refresh.position} #{@dc.name_ru}")
+      Bingo::IndexNow.ping(Bingo::Datacenter.all) # positions shifted
       session[:bingo_flash] = "Added #{@dc.name_ru} at ##{@dc.refresh.position}."
       redirect "/admin/bingo/dc/#{@dc.id}"
     end
@@ -90,8 +91,10 @@ module BingoAdmin
       errs = assign_dc(dc)
       if errs.empty?
         dc.save_changes
-        Bingo.place!(dc, position_param) if position_param && position_param != dc.position
+        moved = position_param && position_param != dc.position
+        Bingo.place!(dc, position_param) if moved
         audit!('bingo.dc_update', dc.slug, dc.name_ru)
+        Bingo::IndexNow.ping(moved ? Bingo::Datacenter.all : [dc])
         session[:bingo_flash] = 'Saved.'
       else
         session[:bingo_flash] = errs.join('; ')
@@ -109,6 +112,7 @@ module BingoAdmin
         Bingo.renumber!
       end
       audit!('bingo.dc_delete', dc.slug, "#{dc.name_ru}, #{n} incident(s)")
+      Bingo::IndexNow.ping([dc, *Bingo::Datacenter.all]) # its pages now 404, the rest moved up
       session[:bingo_flash] = "Deleted #{dc.name_ru}#{" and #{n} incident(s)" if n.positive?}."
       redirect '/admin/bingo'
     end
@@ -116,6 +120,7 @@ module BingoAdmin
     app.post '/admin/bingo/sort' do
       Bingo.sort_by_mw!
       audit!('bingo.sort_by_mw')
+      Bingo::IndexNow.ping(Bingo::Datacenter.all)
       session[:bingo_flash] = 'Sorted by MW (unknown last).'
       redirect '/admin/bingo'
     end
@@ -212,6 +217,7 @@ module BingoAdmin
           title_uk: blank_nil(params[:title_uk]), url: blank_nil(url)
         )
         audit!('bingo.incident_create', dc.slug, "#{date} #{params[:kind]}: #{params[:title_ru].strip}")
+        Bingo::IndexNow.ping([dc])
         session[:bingo_flash] = "Incident recorded for #{dc.name_ru}."
       else
         session[:bingo_flash] = errs.join('; ')
@@ -223,6 +229,7 @@ module BingoAdmin
       inc = Bingo::Incident[params[:id].to_i]
       inc&.destroy # hook bumps the datacenter's updated_at
       audit!('bingo.incident_delete', inc&.datacenter&.slug, inc && "#{inc.occurred_on} #{inc.title_ru}")
+      Bingo::IndexNow.ping([inc.datacenter]) if inc
       session[:bingo_flash] = 'Incident deleted.'
       redirect '/admin/bingo'
     end

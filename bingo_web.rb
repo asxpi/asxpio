@@ -188,6 +188,13 @@ class BingoWeb < Sinatra::Base
     erb :dc
   end
 
+  # IndexNow key file: proves to the engines that pings come from us.
+  get %r{/([A-Za-z0-9-]{8,128})\.txt} do |name|
+    halt 404 unless name == Bingo::IndexNow.key
+    content_type 'text/plain'
+    name
+  end
+
   # Icons from assets/bingo/ (public/ is asxp.io's). Search engines want
   # a crawlable favicon URL; a data: URI doesn't count.
   ICONS = { 'favicon.svg' => 'image/svg+xml', 'favicon.ico' => 'image/x-icon',

@@ -1,4 +1,5 @@
 require_relative 'test_helper'
+require 'minitest/mock'
 
 class BingoTest < Minitest::Test
   include Rack::Test::Methods
@@ -286,6 +287,52 @@ class BingoTest < Minitest::Test
     assert_includes body, '<a href="/en/dc/dc-1" data-dlg="dlg-dc-1"'
     assert_includes body, '<a href="/en/dc/dc-2">Datacenter page →</a>'
     assert_includes body, '<div class="dc"><a href="/en/dc/dc-1">DC 1</a>'
+  end
+
+  def with_env(vars)
+    old = vars.to_h { |k, _| [k, ENV[k]] }
+    vars.each { |k, v| ENV[k] = v }
+    yield
+  ensure
+    old.each { |k, v| ENV[k] = v }
+  end
+
+  def test_indexnow_key_file
+    get '/0123456789abcdef.txt'
+    assert_equal 404, last_response.status
+    with_env('INDEXNOW_KEY' => '0123456789abcdef') do
+      get '/0123456789abcdef.txt'
+      assert last_response.ok?
+      assert_equal '0123456789abcdef', last_response.body
+      get '/fedcba9876543210.txt'
+      assert_equal 404, last_response.status
+    end
+  end
+
+  def test_indexnow_ping
+    assert_nil Bingo::IndexNow.ping([@dcs[0]]) # no key: nothing sent
+    sent = []
+    with_env('INDEXNOW_KEY' => '0123456789abcdef', 'BINGO_HOST' => 'bingo.example') do
+      Bingo::IndexNow.stub(:deliver, ->(body) { sent << JSON.parse(body) }) do
+        Bingo::IndexNow.ping([@dcs[0]]).join
+      end
+    end
+    body = sent.fetch(0)
+    assert_equal 'bingo.example', body['host']
+    assert_equal 'https://bingo.example/0123456789abcdef.txt', body['keyLocation']
+    assert_equal %w[/ru /en /uk /ru/dc/dc-1 /en/dc/dc-1 /uk/dc/dc-1].map { |p| "https://bingo.example#{p}" }, body['urlList']
+  end
+
+  def test_admin_incident_pings_indexnow
+    @app = AsxpioWeb
+    token = admin_token
+    pinged = []
+    Bingo::IndexNow.stub(:ping, ->(dcs) { pinged << dcs.map(&:slug) }) do
+      post '/admin/bingo/incidents', { authenticity_token: token, datacenter_id: @dcs[2].id, occurred_on: '2026-10-01',
+                                       kind: 'fire', title_ru: 'Пожар' }, admin_env
+      post "/admin/bingo/incidents/#{Bingo::Incident.first.id}/delete", { authenticity_token: token }, admin_env
+    end
+    assert_equal [['dc-3'], ['dc-3']], pinged
   end
 
   def test_root_varies_on_language
