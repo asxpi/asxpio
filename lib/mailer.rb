@@ -71,8 +71,16 @@ module Mailer
   end
 
   # Invite / password-reset email with a one-time link.
+  # Account mail keeps MAIL_FROM's verified address but not its display name
+  # ("… Contact Form"); ADMIN_MAIL_NAME overrides the default.
+  def admin_from
+    addr = Mail::Address.new(ENV.fetch('MAIL_FROM'))
+    addr.display_name = ENV.fetch('ADMIN_MAIL_NAME', 'asxp.io admin')
+    addr.format
+  end
+
   def account_link(to:, username:, url:, kind:)
-    from = ENV.fetch('MAIL_FROM')
+    from = admin_from
     subj, intro, ttl =
       if kind == 'invite'
         ['Your asxp.io admin account', "An account \"#{username}\" was created for you on the asxp.io admin.\nSet your password here:", '48 hours']

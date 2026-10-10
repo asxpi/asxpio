@@ -38,6 +38,8 @@ class UsersAdminTest < Minitest::Test
     refute carol.can?('bingo', 'write')
     assert_nil carol.password_digest
     assert_equal ['carol@example.com'], Mail::TestMailer.deliveries.last.to
+    assert_equal 'asxp.io admin', Mail::TestMailer.deliveries.last[:from].display_names.first
+    assert_equal ['test@example.com'], Mail::TestMailer.deliveries.last.from
     get '/admin/users'
     assert_includes last_response.body, 'emailed to carol@example.com'
     assert_includes last_response.body, '/admin/invite/'
