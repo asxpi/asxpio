@@ -10,6 +10,12 @@
         <dt>Due</dt><dd class="mono"><%= @invoice.due_on.strftime('%Y-%m-%d') %></dd>
         <dt>Total</dt><dd class="mono"><%= @invoice.currency %> <%= '%.2f' % @invoice.total %><% unless @invoice.currency == 'GEL' %> · GEL <%= '%.2f' % @invoice.total_gel %><% end %></dd>
         <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span></dd>
+        <% if @invoice.cancelled? %>
+            <dt>Cancelled</dt><dd class="mono"><%= @invoice.cancelled_at.utc.strftime('%Y-%m-%d %H:%M UTC') %><%= " · #{@invoice.cancel_reason}" if @invoice.cancel_reason %></dd>
+        <% end %>
+        <% if @invoice.hidden %>
+            <dt>Visibility</dt><dd><span class="badge badge-hidden">hidden</span> <span class="optional">only superusers see it in the admin</span></dd>
+        <% end %>
         <% if @invoice.paid_at %>
             <dt>Paid at</dt><dd class="mono"><%= @invoice.paid_at.utc.strftime('%Y-%m-%d %H:%M UTC') %></dd>
         <% end %>
@@ -35,10 +41,34 @@
         <code class="mono">https://asxp.io/i/<%= @invoice.uuid %></code>
     </p>
     <% if can?('invoices', 'write') %>
-    <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid" style="margin-top: 14px;">
-        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
-        <button type="submit">
-            <% if @invoice.paid? %>Mark unpaid<% else %>Mark paid<% end %>
+    <div class="invoice-actions">
+        <% unless @invoice.cancelled? %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <button type="submit" class="link-button"><%= @invoice.paid? ? 'Mark unpaid' : 'Mark paid' %></button>
+        </form>
+        <% end %>
+        <% if @invoice.cancelled? %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/reinstate">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <button type="submit" class="link-button">↺ Reinstate</button>
+        </form>
+        <% else %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/cancel" class="invoice-form cancel-form"
+              onsubmit="return confirm('Cancel this invoice? The client link and PDF will show it as CANCELLED.')">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <input type="text" name="reason" maxlength="500" placeholder="Reason (optional, printed on the PDF)" />
+            <button type="submit" class="link-button danger">Cancel invoice</button>
+        </form>
+        <% end %>
+        <% if current_user.superuser %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/hide">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <button type="submit" class="link-button"><%= @invoice.hidden ? 'Unhide' : 'Hide (superusers only)' %></button>
+        </form>
+        <% end %>
+    </div>
+    <% end %>
         </button>
     </form>
     <% end %>

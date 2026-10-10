@@ -87,6 +87,8 @@ Admin (HTTP Basic via `ADMIN_USER`/`ADMIN_PASSWORD`):
 - `POST /admin/invoices` — validate → allocate number → render PDF → upload to MinIO → persist row.
 - `GET  /admin/invoices/:uuid` — detail page with public URL + "Mark paid" toggle.
 - `POST /admin/invoices/:uuid/paid` — toggles `paid_at`.
+- `POST /admin/invoices/:uuid/cancel` (optional `reason`) — sets `cancelled_at`/`cancel_reason`, renders and uploads a third PDF variant (`…-cancelled.pdf`, diagonal CANCELLED stamp + date/reason line) which becomes current, so the client link and download switch over. Status precedence: cancelled > paid > pending; marking paid is refused while cancelled. `POST …/reinstate` clears it.
+- `POST /admin/invoices/:uuid/hide` — superuser-only toggle of `hidden`: hidden invoices are left out of the admin list, dashboard and admin invoice pages for everyone but superusers (`visible_invoices` / `admin_invoice!` helpers). The public `/i/:uuid` link is unaffected.
 
 Public:
 

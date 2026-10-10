@@ -24,7 +24,13 @@ class Invoice < Sequel::Model(:invoices)
     !paid_at.nil?
   end
 
+  def cancelled?
+    !cancelled_at.nil?
+  end
+
+  # Cancellation wins over payment: a cancelled invoice is no longer owed.
   def status
+    return 'cancelled' if cancelled?
     paid? ? 'paid' : 'pending'
   end
 

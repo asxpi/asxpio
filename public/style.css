@@ -420,6 +420,26 @@ fieldset.plain { border: 0; margin: 0; padding: 0; min-width: 0; }
     border-color: var(--pending-border);
     background: var(--pending-bg);
 }
+.badge-cancelled {
+    color: var(--danger);
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+}
+.badge-hidden {
+    color: var(--text-dim);
+    border-color: var(--border-strong);
+    background: var(--surface);
+}
+.invoice-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    margin-top: 14px;
+}
+.invoice-actions .link-button { margin: 0; }
+.cancel-form { display: flex; gap: 8px; flex: 1 1 320px; }
+.link-button.danger:hover { color: var(--danger); border-color: var(--danger-border); }
 .badge-paid {
     color: var(--paid);
     border-color: var(--paid-border);

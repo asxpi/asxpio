@@ -24,7 +24,7 @@
             <tbody>
                 <% @invoices.each do |inv| %>
                     <tr>
-                        <td class="mono"><%= inv.number %></td>
+                        <td class="mono"><%= inv.number %><% if inv.hidden %> <span class="badge badge-hidden">hidden</span><% end %></td>
                         <td><%= inv.client_name %></td>
                         <td class="mono"><%= inv.issued_on.strftime('%Y-%m-%d') %></td>
                         <td class="num mono"><%= inv.currency %> <%= '%.2f' % inv.total %></td>

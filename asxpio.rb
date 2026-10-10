@@ -91,6 +91,15 @@ class AsxpioWeb < Sinatra::Base
     def fmt_crypto(value)
       Fmt.crypto(value)
     end
+
+    # Hidden invoices exist only for superusers in the admin.
+    def visible_invoices
+      current_user&.superuser ? Invoice.dataset : Invoice.where(hidden: false)
+    end
+
+    def admin_invoice!(uuid)
+      visible_invoices.first(uuid: uuid) or halt 404
+    end
   end
 
   before do
@@ -140,13 +149,13 @@ class AsxpioWeb < Sinatra::Base
     @page_title = 'Dashboard · admin'
     @noindex    = true
     if can?('invoices', 'read')
-      unpaid = Invoice.where(paid_at: nil).all
+      unpaid = visible_invoices.where(paid_at: nil, cancelled_at: nil).all
       @inv = {
-        count:         Invoice.count,
+        count:         visible_invoices.count,
         unpaid:        unpaid,
         overdue:       unpaid.count { |i| i.due_on < Date.today },
         unpaid_totals: unpaid.group_by(&:currency).transform_values { |l| l.sum(&:total) },
-        recent:        Invoice.order(Sequel.desc(:created_at)).limit(5).all
+        recent:        visible_invoices.order(Sequel.desc(:created_at)).limit(5).all
       }
     end
     if can?('bingo', 'read')
@@ -166,7 +175,7 @@ class AsxpioWeb < Sinatra::Base
   get '/admin/invoices' do
     @page_title = 'Invoices · admin'
     @noindex    = true
-    @invoices   = Invoice.order(Sequel.desc(:created_at)).all
+    @invoices   = visible_invoices.order(Sequel.desc(:created_at)).all
     erb :'admin/invoices/index'
   end
 
@@ -225,7 +234,7 @@ class AsxpioWeb < Sinatra::Base
   # to today). The snapshotted LTC rate/amount are dropped (stale prices) — the
   # address is kept so the operator only re-fetches the live rate.
   get '/admin/invoices/:uuid/duplicate' do
-    src = Invoice[uuid: params[:uuid]] or halt 404
+    src = admin_invoice!(params[:uuid])
     term = (src.due_on - src.issued_on).to_i
     @page_title  = 'New invoice · admin'
     @noindex     = true
@@ -296,17 +305,48 @@ class AsxpioWeb < Sinatra::Base
   end
 
   get '/admin/invoices/:uuid' do
-    @invoice = Invoice[uuid: params[:uuid]] or halt 404
+    @invoice = admin_invoice!(params[:uuid])
     @page_title = "#{@invoice.number} · admin"
     @noindex    = true
     erb :'admin/invoices/show'
   end
 
   post '/admin/invoices/:uuid/paid' do
-    invoice = Invoice[uuid: params[:uuid]] or halt 404
+    invoice = admin_invoice!(params[:uuid])
+    halt 422, 'Cancelled invoices cannot be marked paid; reinstate it first.' if invoice.cancelled?
     invoice.paid_at = invoice.paid? ? nil : Time.now.utc
     invoice.save_changes
     audit!(invoice.paid? ? 'invoice.paid' : 'invoice.unpaid', invoice.number)
+    redirect "/admin/invoices/#{invoice.uuid}"
+  end
+
+  # Cancel: a third PDF variant with a CANCELLED stamp becomes current, so
+  # the client's link and download switch over. Reinstate undoes it.
+  post '/admin/invoices/:uuid/cancel' do
+    invoice = admin_invoice!(params[:uuid])
+    halt 422, 'Already cancelled.' if invoice.cancelled?
+    invoice.cancelled_at  = Time.now.utc
+    invoice.cancel_reason = params[:reason].to_s.strip[0, 500].then { |r| r.empty? ? nil : r }
+    S3.put(invoice.pdf_key_for('cancelled'), InvoicePdf.render(invoice, status: 'cancelled'))
+    invoice.save_changes
+    audit!('invoice.cancel', invoice.number, invoice.cancel_reason)
+    redirect "/admin/invoices/#{invoice.uuid}"
+  end
+
+  post '/admin/invoices/:uuid/reinstate' do
+    invoice = admin_invoice!(params[:uuid])
+    invoice.update(cancelled_at: nil, cancel_reason: nil)
+    audit!('invoice.reinstate', invoice.number)
+    redirect "/admin/invoices/#{invoice.uuid}"
+  end
+
+  # Superuser-only: hidden invoices vanish from the admin for everyone else
+  # (the client's public link keeps working).
+  post '/admin/invoices/:uuid/hide' do
+    halt 403, 'Only superusers can hide invoices.' unless current_user.superuser
+    invoice = admin_invoice!(params[:uuid])
+    invoice.update(hidden: !invoice.hidden)
+    audit!(invoice.hidden ? 'invoice.hide' : 'invoice.unhide', invoice.number)
     redirect "/admin/invoices/#{invoice.uuid}"
   end
 

@@ -15,7 +15,7 @@
         <% if @invoice.crypto? && (amt = @invoice.crypto_amount_due) %>
             <dt>In <%= @invoice.crypto_coin %></dt><dd class="mono"><%= fmt_crypto(amt) %> <%= @invoice.crypto_coin %><% if @invoice.crypto_rate %> <span class="optional">@ <%= fmt_rate(@invoice.crypto_rate) %> <%= @invoice.currency %></span><% end %></dd>
         <% end %>
-        <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span></dd>
+        <dt>Status</dt><dd><span class="badge badge-<%= @invoice.status %>"><%= @invoice.status %></span><% if @invoice.cancelled? %> <span class="optional">This invoice was cancelled and is not payable.</span><% end %></dd>
     </dl>
 </section>
 

@@ -31,6 +31,7 @@ class InvoicePdf
   COLOR_MUTED   = '6F6F6F'.freeze
   COLOR_RULE    = 'DADADA'.freeze
   COLOR_ACCENT  = '1A1A1A'.freeze
+  COLOR_VOID    = 'C0392B'.freeze
 
   # Uniform line spacing for the FROM / BILL TO party blocks: every line gets the
   # same leading, no extra gaps between groups, so both columns read as one even
@@ -71,11 +72,37 @@ class InvoicePdf
     draw_totals(pdf)
     draw_payment(pdf)
     draw_footer(pdf)
+    draw_cancelled_stamp(pdf) if @status == 'cancelled'
 
     pdf.render
   end
 
   private
+
+  # Diagonal stamp on every page plus the date/reason under it, so a
+  # cancelled invoice can't be mistaken for a payable one.
+  def draw_cancelled_stamp(pdf)
+    when_text = (@invoice.cancelled_at || Time.now.utc).strftime('%Y-%m-%d')
+    reason    = @invoice.cancel_reason.to_s.strip
+    pdf.repeat(:all) do
+      pdf.fill_color COLOR_VOID
+      pdf.transparent(0.18) do
+        pdf.rotate(35, origin: [pdf.bounds.width / 2, pdf.bounds.height / 2]) do
+          pdf.font_size(96) do
+            pdf.draw_text 'CANCELLED', style: :bold,
+                          at: [pdf.bounds.width / 2 - pdf.width_of('CANCELLED', style: :bold) / 2, pdf.bounds.height / 2 - 30]
+          end
+        end
+      end
+      pdf.transparent(0.9) do
+        pdf.font_size(9) do
+          line = "Cancelled #{when_text}#{reason.empty? ? '' : ": #{reason}"}"
+          pdf.draw_text line, at: [0, pdf.bounds.height - 4]
+        end
+      end
+      pdf.fill_color COLOR_TEXT
+    end
+  end
 
   def register_fonts(pdf)
     pdf.font_families.update(
