@@ -47,6 +47,31 @@ class UsersAdminTest < Minitest::Test
     refute_includes last_response.body, '/admin/invite/'   # shown once
   end
 
+  def test_invite_without_username_lets_invitee_choose
+    admin_login!
+    create_user(username: '', perm: { 'bingo' => { 'read' => '1' } })
+    u = User.where(choose_username: true).first
+    assert_match(/\Ainvite-[0-9a-f]{8}\z/, u.username)
+    get '/admin/users'
+    link = last_response.body[%r{https?://\S+?/admin/invite/[\w-]+}]
+    assert link, 'invite link shown'
+    path = URI(link).path
+    clear_cookies
+    get path
+    assert_includes last_response.body, 'Choose a username'
+    tok = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post path, { authenticity_token: tok, username: ENV['ADMIN_USER'], password: 'kate-password-12', confirm: 'kate-password-12' }
+    assert_equal 422, last_response.status                 # taken
+    post path, { authenticity_token: tok, username: 'invite-x', password: 'kate-password-12', confirm: 'kate-password-12' }
+    assert_equal 422, last_response.status                 # reserved prefix
+    post path, { authenticity_token: tok, username: 'Kate', password: 'kate-password-12', confirm: 'kate-password-12' }
+    assert_equal 302, last_response.status
+    u.refresh
+    assert_equal 'kate', u.username
+    refute u.choose_username
+    assert u.can?('bingo', 'read')
+  end
+
   def test_delete_implies_read
     admin_login!
     create_user(username: 'dave', perm: { 'bingo' => { 'delete' => '1' } })

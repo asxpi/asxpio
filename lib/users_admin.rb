@@ -84,6 +84,10 @@ module UsersAdmin
     app.post '/admin/users' do
       @user = User.new(username: params[:username].to_s.strip.downcase, name: params[:name].to_s.strip,
                        email: params[:email].to_s.strip.downcase.then { |e| e.empty? ? nil : e })
+      if @user.username.empty? # invitee chooses it on the invite page
+        @user.username = "invite-#{SecureRandom.hex(4)}"
+        @user.choose_username = true
+      end
       @user.superuser = params[:superuser] == '1' if current_user.superuser
       unless @user.valid? && !User[username: @user.username] && !(@user.email && User[email: @user.email])
         @error = @user.errors.full_messages.join('; ').then { |m| m.empty? ? 'Username or email already in use.' : m }
@@ -188,6 +192,19 @@ module UsersAdmin
           return erb :'admin/set_password'
         end
         user = @token.user
+        if user.choose_username
+          name = params[:username].to_s.strip.downcase
+          @error =
+            if !name.match?(User::NAME_RE) || name.start_with?('invite-') then 'Username: lowercase letters, digits, . _ @ - (2–64).'
+            elsif User.exclude(id: user.id).where(username: name).any?   then 'That username is taken.'
+            end
+          if @error
+            status 422
+            return erb :'admin/set_password'
+          end
+          user.username = name
+          user.choose_username = false
+        end
         user.password = params[:password]
         user.must_change_password = false
         user.session_version += 1

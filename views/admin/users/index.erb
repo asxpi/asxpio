@@ -25,7 +25,7 @@
                     <td><%= perm_summary(u) %></td>
                     <td>
                         <% if !u.active %><span class="badge badge-pending">disabled</span>
-                        <% elsif !u.password_digest %><span class="badge badge-pending">invited</span>
+                        <% elsif !u.password_digest %><span class="badge badge-pending">invited</span><% if u.choose_username %><br /><span class="optional">picks own username</span><% end %>
                         <% else %><span class="badge badge-paid">active</span><% end %>
                     </td>
                     <td class="mono"><%= u.last_login_at&.strftime('%Y-%m-%d %H:%M') || '—' %></td>
