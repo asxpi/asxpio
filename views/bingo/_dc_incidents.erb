@@ -1,0 +1,10 @@
+<% if dc.incidents.empty? %>
+  <p class="empty"><%= t(:no_incidents) %></p>
+<% else %>
+  <ul>
+    <% dc.incidents.each do |i| %>
+      <li><%= kind_icon(i.kind) %> <time datetime="<%= i.occurred_on %>"><%= fmt_date(i.occurred_on) %></time> —
+        <% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener nofollow"><%= i.l(:title, @locale) %></a><% else %><%= i.l(:title, @locale) %><% end %></li>
+    <% end %>
+  </ul>
+<% end %>

@@ -1,0 +1,9 @@
+<div class="meta">
+  <%= [dc.operator, mw(dc), dc.l(:city, @locale), status_label(dc) || (dc.year && format(t(:since), dc.year))].compact.join(' · ') %>
+</div>
+<% if dc.photo_credit || dc.info_url %>
+  <div class="credit">
+    <% if dc.photo_credit %><%= t(:photo) %>: <%= dc.photo_credit %><% end %>
+    <% if dc.info_url %> · <a href="<%= dc.info_url %>" target="_blank" rel="noopener nofollow"><%= t(:source) %></a><% end %>
+  </div>
+<% end %>

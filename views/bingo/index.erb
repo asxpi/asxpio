@@ -33,7 +33,7 @@
   <div class="grid">
     <% b.cells.each_with_index do |dc, idx| %>
       <% photo = photo_path(dc, 480) %>
-      <button type="button" data-dlg="dlg-<%= dc.slug %>"
+      <a href="<%= dc_path(dc) %>" data-dlg="dlg-<%= dc.slug %>"
               class="cell<%= ' photo' if photo %><%= ' hit' if b.hit[idx] %><%= ' win' if b.win_cells.include?(idx) %>"
               aria-label="<%= dc.l(:name, @locale) %><%= " — #{kind_label(dc.incidents.first.kind)}" if b.hit[idx] %>">
         <% if photo %><img class="bg" src="<%= photo %>" alt="" width="480" height="480" decoding="async"<%== ' loading="lazy"' if idx >= 10 %>><% end %>
@@ -46,7 +46,7 @@
           <div class="sub"><%= dc.l(:city, @locale) %></div>
         </div>
         <% if b.hit[idx] %><div class="stamp"><%= kind_icon(dc.incidents.first.kind) %></div><% end %>
-      </button>
+      </a>
     <% end %>
   </div>
 
@@ -62,7 +62,7 @@
           <span><%= kind_icon(i.kind) %></span>
           <div>
             <% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener nofollow"><%= i.l(:title, @locale) %></a><% else %><%= i.l(:title, @locale) %><% end %>
-            <div class="dc"><%= i.datacenter.l(:name, @locale) %> · <%= kind_label(i.kind) %></div>
+            <div class="dc"><a href="<%= dc_path(i.datacenter) %>"><%= i.datacenter.l(:name, @locale) %></a> · <%= kind_label(i.kind) %></div>
           </div>
         </li>
       <% end %>
@@ -80,31 +80,22 @@
     <% if (photo = photo_path(dc, 1200)) %><img src="<%= photo %>" alt="<%= dc.l(:name, @locale) %>, <%= dc.l(:city, @locale) %>" loading="lazy" decoding="async"><% end %>
     <div class="body">
       <h3><%= dc.l(:name, @locale) %></h3>
-      <div class="meta">
-        <%= [dc.operator, mw(dc), dc.l(:city, @locale), status_label(dc) || (dc.year && format(t(:since), dc.year))].compact.join(' · ') %>
+      <%== erb :_dc_meta, layout: false, locals: { dc: dc } %>
+      <%== erb :_dc_incidents, layout: false, locals: { dc: dc } %>
+      <div class="actions">
+        <a href="<%= dc_path(dc) %>"><%= t(:dc_page) %></a>
+        <form method="dialog"><button><%= t(:close) %></button></form>
       </div>
-      <% if dc.photo_credit || dc.info_url %>
-        <div class="credit">
-          <% if dc.photo_credit %><%= t(:photo) %>: <%= dc.photo_credit %><% end %>
-          <% if dc.info_url %> · <a href="<%= dc.info_url %>" target="_blank" rel="noopener nofollow"><%= t(:source) %></a><% end %>
-        </div>
-      <% end %>
-      <% if dc.incidents.empty? %>
-        <p class="empty"><%= t(:no_incidents) %></p>
-      <% else %>
-        <ul>
-          <% dc.incidents.each do |i| %>
-            <li><%= kind_icon(i.kind) %> <%= fmt_date(i.occurred_on) %> —
-              <% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener nofollow"><%= i.l(:title, @locale) %></a><% else %><%= i.l(:title, @locale) %><% end %></li>
-          <% end %>
-        </ul>
-      <% end %>
-      <form method="dialog"><button><%= t(:close) %></button></form>
     </div>
   </dialog>
 <% end %>
 
 <script>
-  document.querySelectorAll('[data-dlg]').forEach(b =>
-    b.addEventListener('click', () => document.getElementById(b.dataset.dlg).showModal()));
+  // Cells are links to the datacenter pages; a plain click opens the dialog
+  // instead, modified clicks (new tab etc.) keep the link.
+  document.querySelectorAll('[data-dlg]').forEach(a => a.addEventListener('click', e => {
+    if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    document.getElementById(a.dataset.dlg).showModal();
+  }));
 </script>

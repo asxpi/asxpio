@@ -40,7 +40,15 @@ module Bingo
       footer: 'Данные из открытых источников (2025–2026). Клетка зачёркивается только по публичному источнику.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожар', 'outage' => 'Отключение', 'flood' => 'Затопление', 'cooling' => 'Перегрев', 'other' => 'Инцидент' },
       letters: %w[Б И Н Г О],
-      view_all: 'Все', view_operational: 'Только действующие', view_label: 'Какие ЦОДы показывать'
+      view_all: 'Все', view_operational: 'Только действующие', view_label: 'Какие ЦОДы показывать',
+      dc_title: '%{name} (%{city}) — инциденты ЦОДа | Бинго ЦОДов',
+      dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Бинго ЦОДов',
+      dc_intro: '%{name} — дата-центр в городе %{city}, оператор — %{operator}.',
+      dc_capacity: 'Мощность: %{mw}.', dc_building: 'Строится.', dc_planned: 'Планируется.',
+      dc_since: 'Работает с %d года.',
+      dc_rank: '№ %{pos} по мощности среди крупнейших дата-центров России.',
+      dc_latest: 'Последний инцидент (%{date}): %{title}', incidents: 'Инциденты',
+      back: '← К карточке', dc_page: 'Страница ЦОДа →'
     },
     'en' => {
       seo_title: 'Datacenter Bingo — strikes, fires and outages at Russian datacenters',
@@ -59,7 +67,15 @@ module Bingo
       footer: 'Open-source data (2025–2026). A cell is crossed out only with a public source.',
       kinds: { 'strike' => 'Drone strike', 'fire' => 'Fire', 'outage' => 'Outage', 'flood' => 'Flood', 'cooling' => 'Overheating', 'other' => 'Incident' },
       letters: %w[B I N G O],
-      view_all: 'All', view_operational: 'Operational only', view_label: 'Which datacenters to show'
+      view_all: 'All', view_operational: 'Operational only', view_label: 'Which datacenters to show',
+      dc_title: '%{name} (%{city}) — datacenter incidents | Datacenter Bingo',
+      dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Datacenter Bingo',
+      dc_intro: '%{name} is a datacenter in %{city} operated by %{operator}.',
+      dc_capacity: 'Capacity: %{mw}.', dc_building: 'Under construction.', dc_planned: 'Planned.',
+      dc_since: 'In service since %d.',
+      dc_rank: "No. %{pos} by power among Russia's largest datacenters.",
+      dc_latest: 'Latest reported incident (%{date}): %{title}', incidents: 'Incidents',
+      back: '← Back to the card', dc_page: 'Datacenter page →'
     },
     'uk' => {
       seo_title: 'Бінго ЦОДів — атаки, пожежі та аварії дата-центрів Росії',
@@ -78,7 +94,15 @@ module Bingo
       footer: 'Дані з відкритих джерел (2025–2026). Клітинка закреслюється лише за публічним джерелом.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожежа', 'outage' => 'Відключення', 'flood' => 'Затоплення', 'cooling' => 'Перегрів', 'other' => 'Інцидент' },
       letters: %w[Б І Н Г О],
-      view_all: 'Усі', view_operational: 'Лише діючі', view_label: 'Які ЦОДи показувати'
+      view_all: 'Усі', view_operational: 'Лише діючі', view_label: 'Які ЦОДи показувати',
+      dc_title: '%{name} (%{city}) — інциденти ЦОДу | Бінго ЦОДів',
+      dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Бінго ЦОДів',
+      dc_intro: '%{name} — дата-центр у місті %{city}, оператор — %{operator}.',
+      dc_capacity: 'Потужність: %{mw}.', dc_building: 'Будується.', dc_planned: 'Планується.',
+      dc_since: 'Працює з %d року.',
+      dc_rank: '№ %{pos} за потужністю серед найбільших дата-центрів Росії.',
+      dc_latest: 'Останній інцидент (%{date}): %{title}', incidents: 'Інциденти',
+      back: '← До картки', dc_page: 'Сторінка ЦОДу →'
     }
   }.freeze
 

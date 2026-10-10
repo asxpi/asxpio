@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<% @entries.each do |path_for, lastmod, x_default| %>
 <% Bingo::LOCALES.each do |l| %>
   <url>
-    <loc><%= base_url %>/<%= l %></loc>
-<% if @lastmod %>    <lastmod><%= @lastmod.utc.iso8601 %></lastmod>
+    <loc><%= base_url %><%= path_for.(l) %></loc>
+<% if lastmod %>    <lastmod><%= lastmod.utc.iso8601 %></lastmod>
 <% end %>
-<% Bingo::LOCALES.each do |alt| %>    <xhtml:link rel="alternate" hreflang="<%= alt %>" href="<%= base_url %>/<%= alt %>"/>
-<% end %>    <xhtml:link rel="alternate" hreflang="x-default" href="<%= base_url %>/"/>
+<% Bingo::LOCALES.each do |alt| %>    <xhtml:link rel="alternate" hreflang="<%= alt %>" href="<%= base_url %><%= path_for.(alt) %>"/>
+<% end %>
+<% if x_default %>    <xhtml:link rel="alternate" hreflang="x-default" href="<%= base_url %><%= x_default %>"/>
+<% end %>
   </url>
+<% end %>
 <% end %>
 </urlset>

@@ -28,6 +28,8 @@ class BingoWeb < Sinatra::Base
       view == 'operational' ? "/#{locale}?view=operational" : "/#{locale}"
     end
 
+    def dc_path(dc, locale = @locale) = "/#{locale}/dc/#{dc.slug}"
+
     def base_url = "https://#{ENV.fetch('BINGO_HOST', request.host)}"
 
     # WebSite + ItemList of the card's datacenters, for rich results.
@@ -54,7 +56,8 @@ class BingoWeb < Sinatra::Base
     # Incidents are Events at the place.
     def ld_place(dc)
       address = { '@type' => 'PostalAddress', 'addressLocality' => dc.l(:city, @locale), 'addressCountry' => 'RU' }
-      place = { '@type' => 'Place', 'name' => dc.l(:name, @locale), 'address' => address }
+      url = "#{base_url}#{dc_path(dc)}"
+      place = { '@type' => 'Place', '@id' => "#{url}#place", 'url' => url, 'name' => dc.l(:name, @locale), 'address' => address }
       place['image'] = "#{base_url}#{photo_path(dc, 1200)}" if dc.photo_key
       place['subjectOf'] = { '@type' => 'CreativeWork', 'url' => dc.info_url } if dc.info_url
       events = dc.incidents.map do |i|
@@ -64,6 +67,38 @@ class BingoWeb < Sinatra::Base
       end
       place['event'] = events if events.any?
       place
+    end
+
+    # Datacenter page: the Place plus a breadcrumb back to the card.
+    def dc_json_ld(dc)
+      JSON.generate(
+        '@context' => 'https://schema.org',
+        '@graph' => [
+          ld_place(dc),
+          { '@type' => 'BreadcrumbList', 'itemListElement' => [
+            { '@type' => 'ListItem', 'position' => 1, 'name' => t(:title), 'item' => "#{base_url}/#{@locale}" },
+            { '@type' => 'ListItem', 'position' => 2, 'name' => dc.l(:name, @locale), 'item' => "#{base_url}#{dc_path(dc)}" }
+          ] }
+        ]
+      ).gsub('</', '<\/')
+    end
+
+    # Plain-language facts for the datacenter page and its meta description.
+    def dc_facts(dc)
+      [format(t(:dc_intro), name: dc.l(:name, @locale), city: dc.l(:city, @locale), operator: dc.operator),
+       (format(t(:dc_capacity), mw: mw(dc)) if mw(dc)),
+       { 'building' => t(:dc_building), 'planned' => t(:dc_planned) }[dc.status] || (dc.year && format(t(:dc_since), dc.year)),
+       format(t(:dc_rank), pos: dc.position)].compact
+    end
+
+    def dc_latest(dc)
+      i = dc.incidents.first or return t(:no_incidents)
+      format(t(:dc_latest), date: fmt_date(i.occurred_on), title: i.l(:title, @locale))
+    end
+
+    # Cut at a word boundary to fit a search snippet.
+    def snippet(text, max = 160)
+      text.length <= max ? text : "#{text[0, max - 1][/\A.*(?=\s)/m] || text[0, max - 1]}…"
     end
 
     # Preview image: the most recent hit with a photo, else the first photo.
@@ -105,25 +140,52 @@ class BingoWeb < Sinatra::Base
     "User-agent: *\nAllow: /\n\nSitemap: #{base_url}/sitemap.xml\n"
   end
 
+  # The card and every datacenter page (reserve included), each with its
+  # language alternates.
   get '/sitemap.xml' do
     content_type 'application/xml'
     cache_control :public, max_age: 3600
-    @lastmod = Bingo::Board.load.updated_on
+    dcs = Bingo::Datacenter.order(:position, :id).eager(:incidents).all
+    @entries = [[->(l) { "/#{l}" }, Bingo::Board.load.updated_on, '/']] +
+               dcs.map { |dc| [->(l) { dc_path(dc, l) }, [dc.updated_at, *dc.incidents.map(&:updated_at)].compact.max] }
     erb :sitemap, layout: false
   end
 
   # One URL per page: /en/ is a duplicate of /en.
-  get %r{/(ru|en|uk)/} do |locale|
+  get %r{/((?:ru|en|uk)(?:/dc/[a-z0-9-]+)?)/} do |path|
     qs = request.query_string
-    redirect "/#{locale}#{"?#{qs}" unless qs.empty?}", 301
+    redirect "/#{path}#{"?#{qs}" unless qs.empty?}", 301
   end
 
   get %r{/(ru|en|uk)} do |locale|
     @locale = locale
     @view   = Bingo::VIEWS.include?(params[:view]) ? params[:view] : 'all'
     @board  = Bingo::Board.load(@view)
+    @title  = t(:seo_title)
+    @desc   = format(t(:seo_desc), hit: @board.hit.count(true), total: @board.cells.size)
+    @noindex = @board.operational_only?
+    @path_for = ->(l) { "/#{l}" }
+    @x_default = '/'
+    @og = og_dc(@board)
+    @ld = json_ld(@board, @desc)
     cache_control :public, max_age: 60
     erb :index
+  end
+
+  get %r{/(ru|en|uk)/dc/([a-z0-9-]+)} do |locale, slug|
+    @locale = locale
+    @dc = Bingo::Datacenter.where(slug: slug).eager(:incidents).first or halt 404
+    @prev, @next = [-1, 1].map { |d| Bingo::Datacenter.first(position: @dc.position + d) }
+    name, city = @dc.l(:name, locale), @dc.l(:city, locale)
+    hit = @dc.incidents.first
+    @title = hit ? format(t(:dc_title_hit), name: name, city: city, kind: kind_label(hit.kind), date: fmt_date(hit.occurred_on))
+                 : format(t(:dc_title), name: name, city: city)
+    @desc = snippet([*dc_facts(@dc).first(2), dc_latest(@dc)].join(' '))
+    @path_for = ->(l) { dc_path(@dc, l) }
+    @og = @dc if @dc.photo_key
+    @ld = dc_json_ld(@dc)
+    cache_control :public, max_age: 60
+    erb :dc
   end
 
   # Icons from assets/bingo/ (public/ is asxp.io's). Search engines want

@@ -1,0 +1,33 @@
+<% dc = @dc %>
+<main>
+  <header>
+    <nav class="crumbs"><a href="/<%= @locale %>"><%= t(:title) %></a></nav>
+    <nav class="langs">
+      <% Bingo::LOCALES.each do |l| %>
+        <a href="<%= @path_for.(l) %>" hreflang="<%= l %>" lang="<%= l %>" <%== 'aria-current="page"' if l == @locale %>><%= l %></a>
+      <% end %>
+    </nav>
+  </header>
+
+  <article class="dc-page<%= ' hit' if dc.incidents.any? %>">
+    <% if (photo = photo_path(dc, 1200)) %><img src="<%= photo %>" alt="<%= dc.l(:name, @locale) %>, <%= dc.l(:city, @locale) %>" decoding="async"><% end %>
+    <h1><%= dc.l(:name, @locale) %></h1>
+    <%== erb :_dc_meta, layout: false, locals: { dc: dc } %>
+    <p class="facts"><%= dc_facts(dc).join(' ') %></p>
+    <section>
+      <h2><%= t(:incidents) %></h2>
+      <%== erb :_dc_incidents, layout: false, locals: { dc: dc } %>
+    </section>
+  </article>
+
+  <nav class="pager">
+    <% if @prev %><a href="<%= dc_path(@prev) %>" rel="prev">← #<%= @prev.position %> <%= @prev.l(:name, @locale) %></a><% else %><span></span><% end %>
+    <% if @next %><a href="<%= dc_path(@next) %>" rel="next">#<%= @next.position %> <%= @next.l(:name, @locale) %> →</a><% end %>
+  </nav>
+  <p><a href="/<%= @locale %>"><%= t(:back) %></a></p>
+
+  <footer>
+    <p><%= t(:footer) %></p>
+    <p>© <%= Date.today.year %> <a href="https://asxp.io">asxp.io</a></p>
+  </footer>
+</main>

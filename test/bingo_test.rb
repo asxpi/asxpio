@@ -174,6 +174,9 @@ class BingoTest < Minitest::Test
     get '/sitemap.xml'
     assert last_response.ok?
     %w[ru en uk].each { |l| assert_includes last_response.body, "<loc>https://example.org/#{l}</loc>" }
+    %w[ru en uk].each { |l| assert_includes last_response.body, "<loc>https://example.org/#{l}/dc/dc-25</loc>" }
+    assert_includes last_response.body, '<xhtml:link rel="alternate" hreflang="uk" href="https://example.org/uk/dc/dc-7"/>'
+    assert_equal 3, last_response.body.scan('hreflang="x-default"').size # card URLs only
     assert_includes last_response.body, 'hreflang="x-default"'
     refute_includes last_response.body, 'changefreq'
     assert_match %r{</loc>\n    <lastmod>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ</lastmod>\n    <xhtml:link}, last_response.body
@@ -220,6 +223,59 @@ class BingoTest < Minitest::Test
     get '/en'
     assert_equal 'max-age=31536000', last_response.headers['strict-transport-security']
     assert_equal 'nosniff', last_response.headers['x-content-type-options']
+  end
+
+  def test_dc_page
+    hit!(3)
+    get '/en/dc/dc-4'
+    assert last_response.ok?
+    body = last_response.body
+    assert_includes body, "<title>ЦОД 4 (Moscow) — Outage, #{Date.today.strftime('%d.%m.%Y')} | Datacenter Bingo</title>"
+    assert_includes body, '<link rel="canonical" href="https://example.org/en/dc/dc-4">'
+    assert_includes body, '<link rel="alternate" hreflang="uk" href="https://example.org/uk/dc/dc-4">'
+    refute_includes body, 'x-default'
+    assert_includes body, '<h1>ЦОД 4</h1>'
+    assert_includes body, 'ЦОД 4 is a datacenter in Moscow operated by Op. Capacity: 4 MW.'
+    assert_includes body, 'No. 4 by power'
+    assert_includes body, 'href="/en/dc/dc-3" rel="prev"'
+    assert_includes body, 'href="/en/dc/dc-5" rel="next"'
+    assert_match(/<meta name="description" content="[^"]*Latest reported incident/, body)
+    ld = JSON.parse(body[%r{<script type="application/ld\+json">(.*?)</script>}m, 1])
+    place = ld['@graph'].find { |n| n['@type'] == 'Place' }
+    assert_equal 'https://example.org/en/dc/dc-4', place['url']
+    assert_equal 'Outage: Авария 3', place['event'][0]['name']
+    crumbs = ld['@graph'].find { |n| n['@type'] == 'BreadcrumbList' }
+    assert_equal 'https://example.org/en', crumbs['itemListElement'][0]['item']
+
+    get '/uk/dc/dc-1'
+    assert_includes last_response.body, '<title>ЦОД 1 (Москва) — інциденти ЦОДу | Бінго ЦОДів</title>'
+    refute_includes last_response.body, 'rel="prev"'
+  end
+
+  def test_reserve_dc_has_a_page
+    Bingo::Datacenter.create(slug: 'dc-26', position: 26, name_ru: 'ЦОД 26', city_ru: 'Тверь', operator: 'Op')
+    get '/ru/dc/dc-26'
+    assert last_response.ok?
+    assert_includes last_response.body, 'href="/ru/dc/dc-25" rel="prev"'
+    get '/sitemap.xml'
+    assert_includes last_response.body, '<loc>https://example.org/ru/dc/dc-26</loc>'
+  end
+
+  def test_dc_page_unknown_and_trailing_slash
+    get '/en/dc/nope'
+    assert_equal 404, last_response.status
+    get '/en/dc/dc-1/'
+    assert_equal 301, last_response.status
+    assert_equal 'http://example.org/en/dc/dc-1', last_response.location
+  end
+
+  def test_card_links_to_dc_pages
+    hit!(0)
+    get '/en'
+    body = last_response.body
+    assert_includes body, '<a href="/en/dc/dc-1" data-dlg="dlg-dc-1"'
+    assert_includes body, '<a href="/en/dc/dc-2">Datacenter page →</a>'
+    assert_includes body, '<div class="dc"><a href="/en/dc/dc-1">DC 1</a>'
   end
 
   def test_root_varies_on_language
