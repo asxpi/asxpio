@@ -114,6 +114,36 @@ class BingoTest < Minitest::Test
     assert_equal out.bytesize - 8, out.byteslice(4, 4).unpack1('V')
   end
 
+  def test_operational_view_skips_construction_projects
+    @dcs[0].update(status: 'building')
+    Bingo::Datacenter.create(slug: 'dc-26', position: 26, name_ru: 'ЦОД 26', city_ru: 'Москва', operator: 'Op', mw: '1')
+    all = Bingo::Board.load
+    op  = Bingo::Board.load('operational')
+    assert_includes all.cells.map(&:slug), 'dc-1'
+    refute_includes op.cells.map(&:slug), 'dc-1'
+    assert_equal 'dc-26', op.cells.last.slug          # reserve moves up to fill the card
+    assert_equal 25, op.cells.size
+  end
+
+  def test_operational_view_recomputes_lines
+    (1..4).each { |i| hit!(i) }                       # row 1 minus dc-1
+    @dcs[0].update(status: 'building')
+    Bingo::Datacenter.create(slug: 'dc-26', position: 26, name_ru: 'ЦОД 26', city_ru: 'Москва', operator: 'Op')
+    assert_equal 0, Bingo::Board.load.wins.size        # dc-1 not hit
+    hit!(5)                                           # dc-6 now sits at index 4 in operational view
+    assert_equal 1, Bingo::Board.load('operational').wins.size
+  end
+
+  def test_view_toggle_page
+    get '/ru?view=operational'
+    assert last_response.ok?
+    assert_includes last_response.body, 'noindex, follow'
+    assert_includes last_response.body, 'href="/en?view=operational"'  # language links keep the view
+    assert_includes last_response.body, 'rel="canonical" href="https://example.org/ru"'
+    get '/ru?view=bogus'
+    assert_includes last_response.body, 'index, follow, max-image-preview'
+  end
+
   def test_robots_and_sitemap_are_the_bingos_own
     get '/robots.txt'
     assert last_response.ok?

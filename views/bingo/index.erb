@@ -2,11 +2,18 @@
 <main>
   <header>
     <h1><%= t(:lead) %> <span><%= t(:accent) %></span></h1>
-    <nav class="langs">
-      <% Bingo::LOCALES.each do |l| %>
-        <a href="/<%= l %>" hreflang="<%= l %>" lang="<%= l %>" <%== 'aria-current="page"' if l == @locale %>><%= l %></a>
-      <% end %>
-    </nav>
+    <div class="switches">
+      <nav class="toggle" aria-label="<%= t(:view_label) %>">
+        <% Bingo::VIEWS.each do |v| %>
+          <a href="<%= card_path(@locale, v) %>" rel="nofollow" <%== 'aria-current="page"' if v == @view %>><%= t(:"view_#{v}") %></a>
+        <% end %>
+      </nav>
+      <nav class="langs">
+        <% Bingo::LOCALES.each do |l| %>
+          <a href="<%= card_path(l) %>" hreflang="<%= l %>" lang="<%= l %>" <%== 'aria-current="page"' if l == @locale %>><%= l %></a>
+        <% end %>
+      </nav>
+    </div>
   </header>
 
   <p class="lead"><%= t(:desc) %></p>

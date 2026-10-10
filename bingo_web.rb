@@ -21,6 +21,11 @@ class BingoWeb < Sinatra::Base
     def kind_label(kind) = Bingo::T[@locale][:kinds][kind] || Bingo::T[@locale][:kinds]['other']
     def kind_icon(kind) = Bingo::ICONS[kind] || Bingo::ICONS['other']
     def photo_path(dc, width = nil) = dc.photo_file(width) && "/p/#{dc.photo_file(width)}"
+    # Path for a locale/view combination; the default view keeps a bare URL.
+    def card_path(locale = @locale, view = @view)
+      view == 'operational' ? "/#{locale}?view=operational" : "/#{locale}"
+    end
+
     def base_url = "https://#{ENV.fetch('BINGO_HOST', request.host)}"
 
     # WebSite + ItemList of the card's datacenters, for rich results.
@@ -85,7 +90,8 @@ class BingoWeb < Sinatra::Base
 
   get %r{/(ru|en|uk)/?} do |locale|
     @locale = locale
-    @board  = Bingo::Board.load
+    @view   = Bingo::VIEWS.include?(params[:view]) ? params[:view] : 'all'
+    @board  = Bingo::Board.load(@view)
     cache_control :public, max_age: 60
     erb :index
   end

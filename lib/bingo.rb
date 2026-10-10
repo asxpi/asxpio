@@ -34,7 +34,8 @@ module Bingo
       close: 'Закрыть', no_incidents: 'Инцидентов не зафиксировано.',
       footer: 'Данные из открытых источников (2025–2026). Клетка зачёркивается только по публичному источнику.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожар', 'outage' => 'Отключение', 'flood' => 'Затопление', 'cooling' => 'Перегрев', 'other' => 'Инцидент' },
-      letters: %w[Б И Н Г О]
+      letters: %w[Б И Н Г О],
+      view_all: 'Все', view_operational: 'Только действующие', view_label: 'Какие ЦОДы показывать'
     },
     'en' => {
       seo_title: 'Datacenter Bingo — strikes, fires and outages at Russian datacenters',
@@ -49,7 +50,8 @@ module Bingo
       close: 'Close', no_incidents: 'No incidents recorded.',
       footer: 'Open-source data (2025–2026). A cell is crossed out only with a public source.',
       kinds: { 'strike' => 'Drone strike', 'fire' => 'Fire', 'outage' => 'Outage', 'flood' => 'Flood', 'cooling' => 'Overheating', 'other' => 'Incident' },
-      letters: %w[B I N G O]
+      letters: %w[B I N G O],
+      view_all: 'All', view_operational: 'Operational only', view_label: 'Which datacenters to show'
     },
     'uk' => {
       seo_title: 'Бінго ЦОДів — атаки, пожежі та аварії дата-центрів Росії',
@@ -64,7 +66,8 @@ module Bingo
       close: 'Закрити', no_incidents: 'Інцидентів не зафіксовано.',
       footer: 'Дані з відкритих джерел (2025–2026). Клітинка закреслюється лише за публічним джерелом.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожежа', 'outage' => 'Відключення', 'flood' => 'Затоплення', 'cooling' => 'Перегрів', 'other' => 'Інцидент' },
-      letters: %w[Б І Н Г О]
+      letters: %w[Б І Н Г О],
+      view_all: 'Усі', view_operational: 'Лише діючі', view_label: 'Які ЦОДи показувати'
     }
   }.freeze
 
@@ -109,15 +112,23 @@ module Bingo
   end
 
   # Board state for rendering: ordered cells, hits and completed lines.
-  Board = Struct.new(:cells, :hit, :wins, :incidents, :updated_on) do
-    def self.load
-      cells = Datacenter.order(:position, :id).limit(SIZE * SIZE).eager(:incidents).all
+  VIEWS = %w[all operational].freeze
+
+  # The card: the first SIZE*SIZE datacenters by position, optionally only
+  # operational ones (same ranking, construction projects skipped).
+  Board = Struct.new(:cells, :hit, :wins, :incidents, :updated_on, :view) do
+    def self.load(view = 'all')
+      scope = Datacenter.order(:position, :id)
+      scope = scope.where(status: 'operational') if view == 'operational'
+      cells = scope.limit(SIZE * SIZE).eager(:incidents).all
       hit   = cells.map { |dc| dc.incidents.any? }
       wins  = LINES.select { |line| line.all? { |i| hit[i] } }
       incidents = cells.flat_map(&:incidents).sort_by { |i| [i.occurred_on, i.id] }.reverse
       updated = [Datacenter.max(:created_at), Incident.max(:created_at)].compact.max
-      new(cells, hit, wins, incidents, updated)
+      new(cells, hit, wins, incidents, updated, view)
     end
+
+    def operational_only? = view == 'operational'
 
     def win_cells
       @win_cells ||= wins.flatten.to_set
