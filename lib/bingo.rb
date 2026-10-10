@@ -113,6 +113,13 @@ module Bingo
       key = width && photo_variants ? Photo.variant_key(photo_key, width) : photo_key
       key.delete_prefix(Photo::PREFIX)
     end
+
+    # 1200x630 JPEG for og:image (every preview client renders it); the
+    # webp dialog variant until it exists.
+    def og_file
+      return photo_file(1200) unless photo_key && photo_og
+      Photo.og_key(photo_key).delete_prefix(Photo::PREFIX)
+    end
   end
 
   class Incident < Sequel::Model(:bingo_incidents)
@@ -154,8 +161,9 @@ module Bingo
   module Photo
     PREFIX    = 'bingo/'.freeze
     MAX_BYTES = 8 * 1024 * 1024
-    FILE_RE   = /\A[a-z0-9-]+-[0-9a-f]{8}(?:-(?:480|1200))?\.(jpg|png|webp)\z/
-    WIDTHS    = [480, 1200].freeze # card cell (2x), dialog / og:image
+    FILE_RE   = /\A[a-z0-9-]+-[0-9a-f]{8}(?:-(?:480|1200|og))?\.(jpg|png|webp)\z/
+    WIDTHS    = [480, 1200].freeze # card cell (2x), dialog
+    OG_SIZE   = [1200, 630].freeze # og:image, cropped to the 1.91:1 card
     CONVERT   = ENV.fetch('BINGO_CONVERT', 'convert') # ImageMagick
     TYPES     = { 'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' }.freeze
 
@@ -189,41 +197,57 @@ module Bingo
     # without them the card falls back to the original.
     def attach(dc, bytes)
       key = store(dc.slug, bytes)
-      dc.update(photo_key: key, photo_variants: build_variants(key, bytes))
+      dc.update(photo_key: key, **build_variants(key, bytes))
       key
     end
 
     # Re-derives the variants from the stored original.
     def rebuild(dc)
-      dc.update(photo_variants: build_variants(dc.photo_key, S3.get(dc.photo_key)))
+      dc.update(**build_variants(dc.photo_key, S3.get(dc.photo_key)))
     end
 
     def variant_key(key, width)
       key.sub(/\.\w+\z/, "-#{width}.webp")
     end
 
+    def og_key(key)
+      key.sub(/\.\w+\z/, '-og.jpg')
+    end
+
+    # Column values for the datacenter row: all variants or none.
     def build_variants(key, bytes)
       bytes = bytes.b
       ext = sniff(bytes) or raise Error, 'not an image'
       WIDTHS.each { |w| S3.put(variant_key(key, w), resize(bytes, ext, w), content_type: TYPES['webp']) }
-      true
+      S3.put(og_key(key), og_crop(bytes, ext), content_type: TYPES['jpg'])
+      { photo_variants: true, photo_og: true }
     rescue Error => e
       $logger.warn("bingo: no variants for #{key}: #{e.message}")
-      false
+      { photo_variants: false, photo_og: false }
     end
 
-    # Downscale (never up) to fit width x width, re-encode as WebP; -strip
-    # drops metadata again. The input coder is pinned to the sniffed type and
-    # memory/area limits guard against decompression bombs.
+    # Downscale (never up) to fit width x width, re-encode as WebP.
     def resize(bytes, ext, width)
-      coder = { 'jpg' => 'jpeg', 'png' => 'png', 'webp' => 'webp' }.fetch(ext)
+      convert(bytes, ext, ['-resize', "#{width}x#{width}>", '-quality', '80'], 'webp')
+    end
+
+    # Fill OG_SIZE and crop the overflow around the centre.
+    def og_crop(bytes, ext)
+      w, h = OG_SIZE
+      convert(bytes, ext, ['-resize', "#{w}x#{h}^", '-gravity', 'center', '-extent', "#{w}x#{h}",
+                           '-quality', '82'], 'jpg')
+    end
+
+    # -strip drops metadata again. The input coder is pinned to the sniffed
+    # type and memory/area limits guard against decompression bombs.
+    def convert(bytes, ext, ops, out_ext)
+      coder = { 'jpg' => 'jpeg', 'png' => 'png', 'webp' => 'webp' }
       out, err, st = Open3.capture3(
         CONVERT, '-limit', 'memory', '256MiB', '-limit', 'area', '128MP',
-        "#{coder}:-", '-auto-orient', '-resize', "#{width}x#{width}>",
-        '-strip', '-quality', '80', 'webp:-',
+        "#{coder.fetch(ext)}:-", '-auto-orient', *ops, '-strip', "#{coder.fetch(out_ext)}:-",
         stdin_data: bytes, binmode: true
       )
-      raise Error, "convert: #{err.lines.first&.strip}" unless st.success? && sniff(out.b) == 'webp'
+      raise Error, "convert: #{err.lines.first&.strip}" unless st.success? && sniff(out.b) == out_ext
       out.b
     rescue Errno::ENOENT
       raise Error, 'ImageMagick (convert) not installed'

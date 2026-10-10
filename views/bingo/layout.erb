@@ -1,6 +1,7 @@
 <% base = base_url %>
 <% desc = format(t(:seo_desc), hit: @board.hit.count(true), total: @board.cells.size) %>
-<% og_img = og_photo(@board) %>
+<% og = og_dc(@board) %>
+<% og_img = og && "#{base}/p/#{og.og_file}" %>
 <!doctype html>
 <html lang="<%= @locale %>">
 <head>
@@ -27,7 +28,12 @@
 <% end %>
 <% if og_img %>
 <meta property="og:image" content="<%= og_img %>">
-<meta property="og:image:alt" content="<%= t(:title) %>">
+<% if og.photo_og %>
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="<%= Bingo::Photo::OG_SIZE[0] %>">
+<meta property="og:image:height" content="<%= Bingo::Photo::OG_SIZE[1] %>">
+<% end %>
+<meta property="og:image:alt" content="<%= og.l(:name, @locale) %>, <%= og.l(:city, @locale) %>">
 <meta name="twitter:image" content="<%= og_img %>">
 <% end %>
 <meta name="twitter:card" content="summary_large_image">

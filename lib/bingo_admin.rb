@@ -144,7 +144,7 @@ module BingoAdmin
 
     app.post '/admin/bingo/dc/:id/photo/delete' do
       dc = Bingo::Datacenter[params[:id].to_i] or halt 404
-      dc.update(photo_key: nil, photo_variants: false)
+      dc.update(photo_key: nil, photo_variants: false, photo_og: false)
       audit!('bingo.photo_remove', dc.slug)
       session[:bingo_flash] = 'Photo removed from card (object kept in bucket).'
       redirect "/admin/bingo/dc/#{dc.id}"

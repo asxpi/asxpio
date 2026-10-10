@@ -216,6 +216,13 @@ class BingoTest < Minitest::Test
     assert_includes body, '1 of Russia&#39;s 25 largest'
     assert_includes body, '<meta property="og:image" content="https://example.org/p/dc-4-0123abcd-1200.webp">'
     assert_includes body, 'src="/p/dc-4-0123abcd-480.webp"'
+    refute_includes body, 'og:image:width'
+    @dcs[3].update(photo_og: true)
+    get '/en'
+    body = last_response.body
+    assert_includes body, '<meta property="og:image" content="https://example.org/p/dc-4-0123abcd-og.jpg">'
+    assert_includes body, '<meta property="og:image:width" content="1200">'
+    assert_includes body, '<meta property="og:image:alt" content="ЦОД 4, Moscow">'
     assert_includes body, 'og:locale:alternate" content="uk_UA"'
     ld = JSON.parse(body[%r{<script type="application/ld\+json">(.*?)</script>}m, 1])
     list = ld['@graph'].find { |n| n['@type'] == 'ItemList' }
@@ -238,6 +245,10 @@ class BingoTest < Minitest::Test
     assert_equal 'webp', Bingo::Photo.sniff(out)
     dims, = Open3.capture2(Bingo::Photo::CONVERT, 'webp:-', '-format', '%wx%h', 'info:', stdin_data: out, binmode: true)
     assert_equal '480x240', dims
+    jpg = Bingo::Photo.og_crop(png.b, 'png')
+    assert_equal 'jpg', Bingo::Photo.sniff(jpg)
+    dims, = Open3.capture2(Bingo::Photo::CONVERT, 'jpeg:-', '-format', '%wx%h', 'info:', stdin_data: jpg, binmode: true)
+    assert_equal '1200x630', dims
   end
 
   def test_sniff_accepts_utf8_tagged_bytes
@@ -252,6 +263,8 @@ class BingoTest < Minitest::Test
     @dcs[0].update(photo_key: 'bingo/dc-1-0123abcd.png')
     Bingo::Photo.rebuild(@dcs[0])
     assert @dcs[0].refresh.photo_variants
+    assert @dcs[0].photo_og
+    assert_equal 'dc-1-0123abcd-og.jpg', @dcs[0].og_file
   ensure
     Aws.config[:s3] = { stub_responses: true }
     S3.instance_variable_set(:@client, nil)

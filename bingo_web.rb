@@ -51,9 +51,8 @@ class BingoWeb < Sinatra::Base
     end
 
     # Preview image: the most recent hit with a photo, else the first photo.
-    def og_photo(board)
-      dc = board.incidents.map(&:datacenter).find(&:photo_key) || board.cells.find(&:photo_key)
-      dc && "#{base_url}#{photo_path(dc, 1200)}"
+    def og_dc(board)
+      board.incidents.map(&:datacenter).find(&:photo_key) || board.cells.find(&:photo_key)
     end
     def fmt_date(d) = d.strftime('%d.%m.%Y')
 
