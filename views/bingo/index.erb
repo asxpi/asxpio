@@ -1,0 +1,100 @@
+<% b = @board %>
+<main>
+  <header>
+    <h1><%= t(:lead) %> <span><%= t(:accent) %></span></h1>
+    <nav class="langs">
+      <% Bingo::LOCALES.each do |l| %>
+        <a href="/<%= l %>" hreflang="<%= l %>" lang="<%= l %>" <%== 'aria-current="page"' if l == @locale %>><%= l %></a>
+      <% end %>
+    </nav>
+  </header>
+
+  <p class="lead"><%= t(:desc) %></p>
+  <p class="meta">
+    <%= t(:crossed) %> <b><%= b.hit.count(true) %></b>/<%= b.cells.size %>
+    · <%= t(:lines) %> <b><%= b.wins.size %></b>
+    <% if b.updated_on %>· <%= t(:updated) %> <b><%= fmt_date(b.updated_on) %></b><% end %>
+  </p>
+
+  <% if b.wins.any? %>
+    <div class="banner">
+      <%= b.wins.size == Bingo::LINES.size ? t(:full) : b.wins.size > 1 ? format(t(:bingo_n), b.wins.size) : t(:bingo) %>
+    </div>
+  <% end %>
+
+  <div class="letters" aria-hidden="true"><% t(:letters).each do |ch| %><div><%= ch %></div><% end %></div>
+  <div class="grid">
+    <% b.cells.each_with_index do |dc, idx| %>
+      <% photo = photo_path(dc) %>
+      <button type="button" data-dlg="dlg-<%= dc.slug %>"
+              class="cell<%= ' photo' if photo %><%= ' hit' if b.hit[idx] %><%= ' win' if b.win_cells.include?(idx) %>"
+              <% if photo %>style="background-image: url('<%= photo %>')"<% end %>
+              aria-label="<%= dc.l(:name, @locale) %><%= " — #{kind_label(dc.incidents.first.kind)}" if b.hit[idx] %>">
+        <div>
+          <div class="n">#<%= idx + 1 %><%= " · #{mw(dc)}" if mw(dc) %></div>
+          <% if dc.building? %><div class="tag"><%= t(:building) %></div><% end %>
+        </div>
+        <div>
+          <div class="name"><%= dc.l(:name, @locale) %></div>
+          <div class="sub"><%= dc.l(:city, @locale) %></div>
+        </div>
+        <% if b.hit[idx] %><div class="stamp"><%= kind_icon(dc.incidents.first.kind) %></div><% end %>
+      </button>
+    <% end %>
+  </div>
+
+  <section>
+    <h2><%= t(:log) %></h2>
+    <ul class="log">
+      <% if b.incidents.empty? %>
+        <li class="empty"><%= t(:empty) %></li>
+      <% end %>
+      <% b.incidents.each do |i| %>
+        <li>
+          <time datetime="<%= i.occurred_on %>"><%= fmt_date(i.occurred_on) %></time>
+          <span><%= kind_icon(i.kind) %></span>
+          <div>
+            <% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener nofollow"><%= i.l(:title, @locale) %></a><% else %><%= i.l(:title, @locale) %><% end %>
+            <div class="dc"><%= i.datacenter.l(:name, @locale) %> · <%= kind_label(i.kind) %></div>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+
+  <footer><%= t(:footer) %></footer>
+</main>
+
+<% b.cells.each do |dc| %>
+  <dialog id="dlg-<%= dc.slug %>">
+    <% if (photo = photo_path(dc)) %><img src="<%= photo %>" alt="<%= dc.l(:name, @locale) %>" loading="lazy"><% end %>
+    <div class="body">
+      <h3><%= dc.l(:name, @locale) %></h3>
+      <div class="meta">
+        <%= [dc.operator, mw(dc), dc.l(:city, @locale), dc.building? ? t(:building) : (dc.year && format(t(:since), dc.year))].compact.join(' · ') %>
+      </div>
+      <% if dc.photo_credit || dc.info_url %>
+        <div class="credit">
+          <% if dc.photo_credit %><%= t(:photo) %>: <%= dc.photo_credit %><% end %>
+          <% if dc.info_url %> · <a href="<%= dc.info_url %>" target="_blank" rel="noopener nofollow"><%= t(:source) %></a><% end %>
+        </div>
+      <% end %>
+      <% if dc.incidents.empty? %>
+        <p class="empty"><%= t(:no_incidents) %></p>
+      <% else %>
+        <ul>
+          <% dc.incidents.each do |i| %>
+            <li><%= kind_icon(i.kind) %> <%= fmt_date(i.occurred_on) %> —
+              <% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener nofollow"><%= i.l(:title, @locale) %></a><% else %><%= i.l(:title, @locale) %><% end %></li>
+          <% end %>
+        </ul>
+      <% end %>
+      <form method="dialog"><button><%= t(:close) %></button></form>
+    </div>
+  </dialog>
+<% end %>
+
+<script>
+  document.querySelectorAll('[data-dlg]').forEach(b =>
+    b.addEventListener('click', () => document.getElementById(b.dataset.dlg).showModal()));
+</script>

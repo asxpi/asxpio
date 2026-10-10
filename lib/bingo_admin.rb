@@ -1,0 +1,144 @@
+require 'uri'
+
+# /admin/bingo/* on asxp.io: edit the card and record incidents for BingoWeb.
+# Registered into AsxpioWeb, so AdminAuth (HTTP Basic) and CSRF apply.
+module BingoAdmin
+  DC_TEXT = %w[name_ru name_en name_uk city_ru city_en city_uk operator mw status
+               photo_credit photo_source_url info_url].freeze
+
+  module Helpers
+    def bingo_public_url
+      ENV['BINGO_HOST'] && "https://#{ENV['BINGO_HOST']}/ru"
+    end
+
+    def http_url?(s)
+      s.empty? || s.match?(URI::DEFAULT_PARSER.make_regexp(%w[http https]))
+    end
+
+    def blank_nil(s)
+      s = s.to_s.strip
+      s.empty? ? nil : s
+    end
+  end
+
+  def self.registered(app)
+    app.helpers Helpers
+
+    app.get '/admin/bingo' do
+      @page_title = 'Bingo · admin'
+      @noindex    = true
+      @dcs        = Bingo::Datacenter.order(:position, :id).eager(:incidents).all
+      @incidents  = Bingo::Incident.order(Sequel.desc(:occurred_on), Sequel.desc(:id)).eager(:datacenter).all
+      @flash      = session.delete(:bingo_flash)
+      erb :'admin/bingo/index'
+    end
+
+    app.get '/admin/bingo/dc/:id' do
+      @dc = Bingo::Datacenter[params[:id].to_i] or halt 404
+      @page_title = "#{@dc.name_ru} · bingo admin"
+      @noindex    = true
+      @flash      = session.delete(:bingo_flash)
+      erb :'admin/bingo/edit'
+    end
+
+    app.post '/admin/bingo/dc/:id' do
+      dc = Bingo::Datacenter[params[:id].to_i] or halt 404
+      DC_TEXT.each { |f| dc[f.to_sym] = blank_nil(params[f]) }
+      dc.position = params[:position].to_i if params[:position].to_s =~ /\A\d+\z/
+      dc.year     = params[:year].to_s =~ /\A\d{4}\z/ ? params[:year].to_i : nil
+      dc.status   = 'operational' unless %w[operational building].include?(dc.status)
+      errs = []
+      errs << 'Name (ru), city (ru) and operator are required' if [dc.name_ru, dc.city_ru, dc.operator].any?(&:nil?)
+      errs << 'URLs must be http(s)' unless [dc.photo_source_url, dc.info_url].all? { |u| http_url?(u.to_s) }
+      if errs.empty?
+        dc.save_changes
+        session[:bingo_flash] = 'Saved.'
+      else
+        session[:bingo_flash] = errs.join('; ')
+      end
+      redirect "/admin/bingo/dc/#{dc.id}"
+    end
+
+    # Either an uploaded file or "import from URL" (defaults to photo_source_url).
+    app.post '/admin/bingo/dc/:id/photo' do
+      dc = Bingo::Datacenter[params[:id].to_i] or halt 404
+      begin
+        bytes =
+          if params[:photo].is_a?(Hash) && params[:photo][:tempfile]
+            params[:photo][:tempfile].read(Bingo::Photo::MAX_BYTES + 1)
+          else
+            url = blank_nil(params[:url]) || dc.photo_source_url or raise Bingo::Photo::Error, 'no file and no URL'
+            dc.photo_source_url = url
+            Bingo::Photo.fetch(url)
+          end
+        dc.photo_key = Bingo::Photo.store(dc.slug, bytes)
+        dc.save_changes
+        session[:bingo_flash] = 'Photo stored.'
+      rescue Bingo::Photo::Error => e
+        session[:bingo_flash] = "Photo failed: #{e.message}"
+      end
+      redirect "/admin/bingo/dc/#{dc.id}"
+    end
+
+    app.post '/admin/bingo/dc/:id/photo/delete' do
+      dc = Bingo::Datacenter[params[:id].to_i] or halt 404
+      dc.update(photo_key: nil)
+      session[:bingo_flash] = 'Photo removed from card (object kept in bucket).'
+      redirect "/admin/bingo/dc/#{dc.id}"
+    end
+
+    # Bulk: import every missing photo from its photo_source_url.
+    app.post '/admin/bingo/photos/import' do
+      ok, failed = 0, []
+      Bingo::Datacenter.where(photo_key: nil).exclude(photo_source_url: nil).each do |dc|
+        dc.update(photo_key: Bingo::Photo.store(dc.slug, Bingo::Photo.fetch(dc.photo_source_url)))
+        ok += 1
+      rescue Bingo::Photo::Error => e
+        failed << "#{dc.slug}: #{e.message}"
+      end
+      session[:bingo_flash] = (["Imported #{ok}."] + failed).join(' | ')
+      redirect '/admin/bingo'
+    end
+
+    app.get '/admin/bingo/p/:file' do
+      bytes, type = Bingo::Photo.read(params[:file])
+      content_type type
+      bytes
+    rescue Bingo::Photo::Error, Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NotFound
+      halt 404
+    end
+
+    app.post '/admin/bingo/incidents' do
+      dc   = Bingo::Datacenter[params[:datacenter_id].to_i]
+      date = begin
+        Date.iso8601(params[:occurred_on].to_s)
+      rescue Date::Error
+        nil
+      end
+      url = params[:url].to_s.strip
+      errs = []
+      errs << 'Pick a datacenter'          unless dc
+      errs << 'Valid date required'        unless date
+      errs << 'Unknown kind'               unless Bingo::KINDS.include?(params[:kind])
+      errs << 'Title (ru) required'        if params[:title_ru].to_s.strip.empty?
+      errs << 'Source URL must be http(s)' unless http_url?(url)
+      if errs.empty?
+        Bingo::Incident.create(
+          datacenter_id: dc.id, occurred_on: date, kind: params[:kind],
+          title_ru: params[:title_ru].strip, title_en: blank_nil(params[:title_en]),
+          title_uk: blank_nil(params[:title_uk]), url: blank_nil(url)
+        )
+        session[:bingo_flash] = "Incident recorded for #{dc.name_ru}."
+      else
+        session[:bingo_flash] = errs.join('; ')
+      end
+      redirect '/admin/bingo'
+    end
+
+    app.post '/admin/bingo/incidents/:id/delete' do
+      Bingo::Incident.where(id: params[:id].to_i).delete
+      session[:bingo_flash] = 'Incident deleted.'
+      redirect '/admin/bingo'
+    end
+  end
+end

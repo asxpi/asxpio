@@ -1,0 +1,91 @@
+<div class="header">
+    <h1>Bingo</h1>
+    <p class="tagline">
+        <a href="/admin/invoices">invoices</a>
+        <% if bingo_public_url %> · <a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %>
+    </p>
+</div>
+
+<% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
+
+<section class="section">
+    <h2>Record incident</h2>
+    <form class="invoice-form" method="post" action="/admin/bingo/incidents" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <div class="invoice-grid">
+            <div class="field">
+                <label for="datacenter_id">Datacenter</label>
+                <select id="datacenter_id" name="datacenter_id" required>
+                    <% @dcs.each do |dc| %><option value="<%= dc.id %>">#<%= dc.position %> <%= dc.name_ru %></option><% end %>
+                </select>
+            </div>
+            <div class="field">
+                <label for="occurred_on">Date</label>
+                <input type="date" id="occurred_on" name="occurred_on" value="<%= Date.today %>" required />
+            </div>
+            <div class="field">
+                <label for="kind">Kind</label>
+                <select id="kind" name="kind">
+                    <% Bingo::KINDS.each do |k| %><option value="<%= k %>"><%= Bingo::ICONS[k] %> <%= k %></option><% end %>
+                </select>
+            </div>
+        </div>
+        <div class="field"><label for="title_ru">Title (ru)</label><input type="text" id="title_ru" name="title_ru" required maxlength="300" /></div>
+        <div class="field"><label for="title_en">Title (en) <span class="optional">(falls back to ru)</span></label><input type="text" id="title_en" name="title_en" maxlength="300" /></div>
+        <div class="field"><label for="title_uk">Title (uk) <span class="optional">(falls back to ru)</span></label><input type="text" id="title_uk" name="title_uk" maxlength="300" /></div>
+        <div class="field"><label for="url">Source URL</label><input type="url" id="url" name="url" placeholder="https://" /></div>
+        <button type="submit" class="download-button">Cross it out</button>
+    </form>
+</section>
+
+<section class="section">
+    <h2>Incidents</h2>
+    <% if @incidents.empty? %>
+        <p>None yet.</p>
+    <% else %>
+        <table class="invoice-list">
+            <thead><tr><th>Date</th><th>Datacenter</th><th>Kind</th><th>Title</th><th></th></tr></thead>
+            <tbody>
+                <% @incidents.each do |i| %>
+                    <tr>
+                        <td class="mono"><%= i.occurred_on %></td>
+                        <td><%= i.datacenter.name_ru %></td>
+                        <td><%= Bingo::ICONS[i.kind] %> <%= i.kind %></td>
+                        <td><% if i.url %><a href="<%= i.url %>" target="_blank" rel="noopener"><%= i.title_ru %></a><% else %><%= i.title_ru %><% end %></td>
+                        <td class="actions">
+                            <form method="post" action="/admin/bingo/incidents/<%= i.id %>/delete" onsubmit="return confirm('Delete this incident?')">
+                                <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+                                <button type="submit" class="link-button">delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+    <% end %>
+</section>
+
+<section class="section">
+    <h2>Card</h2>
+    <form method="post" action="/admin/bingo/photos/import">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit" class="link-button">↻ Import all missing photos from their source URLs</button>
+    </form>
+    <table class="invoice-list">
+        <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Operator</th><th class="num">MW</th><th>Status</th><th class="num">Incidents</th><th></th></tr></thead>
+        <tbody>
+            <% @dcs.each do |dc| %>
+                <tr>
+                    <td class="mono"><%= dc.position %></td>
+                    <td><% if dc.photo_file %><img src="/admin/bingo/p/<%= dc.photo_file %>" alt="" width="64" height="40" style="object-fit: cover" /><% else %>—<% end %></td>
+                    <td><%= dc.name_ru %><br /><span class="optional"><%= dc.city_ru %></span></td>
+                    <td><%= dc.operator %></td>
+                    <td class="num mono"><%= dc.mw %></td>
+                    <td><%= dc.status %></td>
+                    <td class="num mono"><%= dc.incidents.size %></td>
+                    <td class="actions"><a href="/admin/bingo/dc/<%= dc.id %>">edit</a></td>
+                </tr>
+            <% end %>
+        </tbody>
+    </table>
+</section>

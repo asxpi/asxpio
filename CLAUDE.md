@@ -115,6 +115,18 @@ Admin pages use a shared dark palette extended in `public/style.css` (search for
 - Anyone with the UUID can fetch the PDF. UUIDs are 122-bit random so not enumerable, but they aren't access-controlled. If a stronger gate is ever needed (email confirmation, expiry on paid, etc.) it goes in the `/i/:uuid` and `/i/:uuid/pdf` handlers.
 - The MinIO bucket is **private**; only the app's scoped service account can put/get. Presigned URLs use `S3_PUBLIC_ENDPOINT=https://s3.asxp.io` so the signed host matches what the browser fetches.
 
+## Datacenter bingo
+
+A second public site served from the **same process** on `BINGO_HOST` (`bingo.asxp.io`, non-secret config in `deploy.yaml` → `.env` → Traefik router `asxpio-bingo` via compose interpolation). `config.ru` dispatches by Host: `BINGO_HOST` → `BingoWeb` (`bingo_web.rb`), everything else → `AsxpioWeb`. Unset `BINGO_HOST` = bingo unreachable.
+
+- 5×5 card of the 25 largest Russian datacenters; a cell is crossed out when an incident (with a public source) is recorded. Rows/columns/diagonals → BINGO banner.
+- Locales `ru` / `en` / `uk` at `/ru`, `/en`, `/uk`; `/` redirects by `Accept-Language` (fallback `en`). Per-locale DB columns (`name_*`, `city_*`, `title_*`); `ru` is required, others fall back to it. UI strings in `Bingo::T` (`lib/bingo.rb`).
+- Tables `bingo_datacenters`, `bingo_incidents` (`db/migrations/004_bingo.rb`) in the asxpio DB. First boot seeds from `db/bingo_seed.json` (verified 2026-10-10, sources in `info_url`) only if the table is empty — after that, edit via admin, not the JSON.
+- Admin: `/admin/bingo` on asxp.io (`lib/bingo_admin.rb`, registered into `AsxpioWeb`, so HTTP Basic + CSRF apply). Record/delete incidents, edit DCs, upload a photo or import it from a URL, bulk "import all missing photos" from `photo_source_url`.
+- Photos: stored in the existing bucket under `bingo/<slug>-<hex>.<ext>` (no storage-repo change), proxied by `BingoWeb` at `/p/:file` with immutable caching (new upload = new key; old objects are kept). Type sniffed from magic bytes (JPEG/PNG/WebP), 8 MB cap. URL import is https-only, admin-only.
+- Photos are third-party (operator sites, Habr, Wikimedia Commons CC BY-SA) — keep `photo_credit` filled; renders/illustrations are marked as such.
+- No street addresses or coordinates on the page — city level only.
+
 ## Operational notes
 
 - `client_ip` reads `X-Forwarded-For` first (Traefik sets it), falling back to `X-Real-IP` and `REMOTE_ADDR`.

@@ -40,6 +40,10 @@ module S3
     key
   end
 
+  def get(key)
+    client.get_object(bucket: bucket, key: key).body.read
+  end
+
   def exists?(key)
     client.head_object(bucket: bucket, key: key)
     true

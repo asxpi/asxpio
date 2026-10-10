@@ -23,6 +23,7 @@ require_relative 'lib/rate_limit'
 require_relative 'lib/db'
 require_relative 'lib/admin_auth'
 require_relative 'lib/s3'
+require_relative 'lib/bingo_admin'
 
 # Invoice model needs a live Sequel connection at class-definition time.
 if ENV['DATABASE_URL']
@@ -34,6 +35,8 @@ if ENV['DATABASE_URL']
   require_relative 'lib/crypto_qr'
   require_relative 'lib/gel_rate'
   require_relative 'lib/invoice_pdf'
+  require_relative 'lib/bingo'
+  Bingo.seed!
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
 end
@@ -61,6 +64,7 @@ class AsxpioWeb < Sinatra::Base
 
   use Rack::Protection::AuthenticityToken
   use AdminAuth
+  register BingoAdmin
 
   Mailer.configure!
 

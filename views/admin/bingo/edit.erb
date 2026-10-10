@@ -1,0 +1,52 @@
+<div class="header">
+    <h1>#<%= @dc.position %> <%= @dc.name_ru %></h1>
+    <p class="tagline"><a href="/admin/bingo">← bingo</a></p>
+</div>
+
+<% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
+
+<section class="section">
+    <h2>Photo</h2>
+    <% if @dc.photo_file %>
+        <p><img src="/admin/bingo/p/<%= @dc.photo_file %>" alt="" style="max-width: 100%; max-height: 280px" /></p>
+        <form method="post" action="/admin/bingo/dc/<%= @dc.id %>/photo/delete">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <button type="submit" class="link-button">remove from card</button>
+        </form>
+    <% end %>
+    <form class="invoice-form" method="post" action="/admin/bingo/dc/<%= @dc.id %>/photo" enctype="multipart/form-data">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <div class="field"><label for="photo">Upload <span class="optional">(JPEG/PNG/WebP, ≤ 8 MB)</span></label><input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" /></div>
+        <div class="field"><label for="photo_url">…or import from URL <span class="optional">(blank = saved source URL)</span></label><input type="url" id="photo_url" name="url" placeholder="<%= @dc.photo_source_url %>" /></div>
+        <button type="submit" class="download-button">Store photo</button>
+    </form>
+</section>
+
+<section class="section">
+    <h2>Details</h2>
+    <form class="invoice-form" method="post" action="/admin/bingo/dc/<%= @dc.id %>" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <div class="invoice-grid">
+            <% %w[ru en uk].each do |l| %>
+                <div class="field"><label for="name_<%= l %>">Name (<%= l %>)</label><input type="text" id="name_<%= l %>" name="name_<%= l %>" value="<%= @dc[:"name_#{l}"] %>" <%= 'required' if l == 'ru' %> /></div>
+            <% end %>
+            <% %w[ru en uk].each do |l| %>
+                <div class="field"><label for="city_<%= l %>">City (<%= l %>)</label><input type="text" id="city_<%= l %>" name="city_<%= l %>" value="<%= @dc[:"city_#{l}"] %>" <%= 'required' if l == 'ru' %> /></div>
+            <% end %>
+            <div class="field"><label for="operator">Operator</label><input type="text" id="operator" name="operator" value="<%= @dc.operator %>" required /></div>
+            <div class="field"><label for="mw">MW <span class="optional">(number or range)</span></label><input type="text" id="mw" name="mw" value="<%= @dc.mw %>" /></div>
+            <div class="field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <% %w[operational building].each do |s| %><option <%= 'selected' if @dc.status == s %>><%= s %></option><% end %>
+                </select>
+            </div>
+            <div class="field"><label for="year">Year</label><input type="text" id="year" name="year" value="<%= @dc.year %>" inputmode="numeric" /></div>
+            <div class="field"><label for="position">Position (1–25)</label><input type="text" id="position" name="position" value="<%= @dc.position %>" inputmode="numeric" /></div>
+        </div>
+        <div class="field"><label for="photo_credit">Photo credit</label><input type="text" id="photo_credit" name="photo_credit" value="<%= @dc.photo_credit %>" /></div>
+        <div class="field"><label for="photo_source_url">Photo source URL</label><input type="url" id="photo_source_url" name="photo_source_url" value="<%= @dc.photo_source_url %>" /></div>
+        <div class="field"><label for="info_url">Info / fact source URL</label><input type="url" id="info_url" name="info_url" value="<%= @dc.info_url %>" /></div>
+        <button type="submit" class="download-button">Save</button>
+    </form>
+</section>

@@ -1,0 +1,107 @@
+<% base = "https://#{ENV.fetch('BINGO_HOST', request.host)}" %>
+<!doctype html>
+<html lang="<%= @locale %>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= t(:title) %></title>
+<meta name="description" content="<%= t(:desc) %>">
+<link rel="canonical" href="<%= base %>/<%= @locale %>">
+<% Bingo::LOCALES.each do |l| %>
+<link rel="alternate" hreflang="<%= l %>" href="<%= base %>/<%= l %>">
+<% end %>
+<link rel="alternate" hreflang="x-default" href="<%= base %>/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="<%= t(:title) %>">
+<meta property="og:description" content="<%= t(:desc) %>">
+<meta property="og:url" content="<%= base %>/<%= @locale %>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #fffdf8; --ink: #1d1b18; --muted: #6f6a60; --line: #d9d3c6;
+    --hit: #c8361d; --hit-bg: #fbe3dc; --win: #e7b416; --on-win: #1d1b18;
+    --shade: rgb(0 0 0 / .62); --on-photo: #fff; --on-photo-muted: rgb(255 255 255 / .75);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121212; --card: #1c1b19; --ink: #ece7dc; --muted: #9a9384; --line: #34312b;
+      --hit: #ff6a4d; --hit-bg: #3a1d16; --win: #f0c43a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121212; --card: #1c1b19; --ink: #ece7dc; --muted: #9a9384; --line: #34312b;
+    --hit: #ff6a4d; --hit-bg: #3a1d16; --win: #f0c43a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+  a { color: inherit; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { margin: 0; font-size: clamp(28px, 6vw, 44px); letter-spacing: -.02em; }
+  h1 span { color: var(--hit); }
+  .langs { display: flex; gap: 4px; }
+  .langs a { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; font-size: 13px; text-transform: uppercase; }
+  .langs a[aria-current] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .meta { color: var(--muted); font-size: 14px; }
+  .meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .lead { color: var(--muted); margin: 0 0 16px; max-width: 60ch; }
+  .banner { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; background: var(--win); color: var(--on-win); font-weight: 700; font-size: 18px; }
+
+  .letters, .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .letters div { text-align: center; font-weight: 900; font-size: clamp(22px, 5vw, 36px); color: var(--hit); }
+  .grid { margin-top: 6px; }
+  .cell {
+    position: relative; aspect-ratio: 1; padding: 8px; overflow: hidden; width: 100%;
+    background: var(--card) center / cover no-repeat; border: 1px solid var(--line); border-radius: 8px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    text-align: left; color: inherit; font: inherit; cursor: pointer;
+  }
+  .cell.photo { color: var(--on-photo); border-color: transparent; }
+  .cell.photo::before { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, var(--shade), rgb(0 0 0 / .15) 70%); }
+  .cell > * { position: relative; z-index: 1; }
+  .cell .n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cell.photo .n, .cell.photo .sub { color: var(--on-photo-muted); }
+  .cell .name { font-weight: 700; font-size: clamp(11px, 1.9vw, 15px); line-height: 1.15; }
+  .cell .sub { font-size: clamp(10px, 1.4vw, 12px); color: var(--muted); }
+  .cell .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .cell.hit { border-color: var(--hit); }
+  .cell.hit:not(.photo) { background-color: var(--hit-bg); }
+  .cell.hit::after {
+    content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: .8;
+    background:
+      linear-gradient(to top right, transparent calc(50% - 2px), var(--hit) calc(50% - 2px), var(--hit) calc(50% + 2px), transparent calc(50% + 2px)),
+      linear-gradient(to top left,  transparent calc(50% - 2px), var(--hit) calc(50% - 2px), var(--hit) calc(50% + 2px), transparent calc(50% + 2px));
+  }
+  .cell .stamp { position: absolute; right: 6px; top: 4px; font-size: clamp(16px, 3vw, 24px); z-index: 3; }
+  .cell.win { box-shadow: 0 0 0 3px var(--win); }
+  .cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  section { margin-top: 32px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .log { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .log li { display: grid; grid-template-columns: 96px 28px 1fr; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .log time, .log .dc { color: var(--muted); }
+  .log .dc { font-size: 13px; }
+  .empty { color: var(--muted); }
+
+  dialog { width: min(520px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); padding: 0; }
+  dialog::backdrop { background: rgb(0 0 0 / .55); }
+  dialog img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+  dialog .body { padding: 16px 20px 20px; }
+  dialog h3 { margin: 0 0 4px; }
+  dialog .credit { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  dialog ul { padding-left: 18px; }
+  dialog button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 560px) {
+    .cell { padding: 5px; border-radius: 6px; }
+    .cell .sub, .cell .n, .cell .tag { display: none; }
+    .letters, .grid { gap: 4px; }
+    .log li { grid-template-columns: 84px 24px 1fr; }
+  }
+</style>
+</head>
+<body>
+<%== yield %>
+</body>
+</html>
