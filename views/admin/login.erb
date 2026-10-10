@@ -1,0 +1,15 @@
+<div class="header">
+    <h1>Admin</h1>
+    <p class="tagline">asxp.io</p>
+</div>
+
+<section class="section">
+    <% if @error %><div class="form-error-base"><div><%= @error %></div></div><% end %>
+    <form class="invoice-form auth-form" method="post" action="/admin/login">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <input type="hidden" name="next" value="<%= @next %>" />
+        <div class="field"><label for="username">Username</label><input type="text" id="username" name="username" value="<%= params[:username] %>" autocomplete="username" autocapitalize="none" required autofocus /></div>
+        <div class="field"><label for="password">Password</label><input type="password" id="password" name="password" autocomplete="current-password" required /></div>
+        <button type="submit" class="download-button">Log in</button>
+    </form>
+</section>

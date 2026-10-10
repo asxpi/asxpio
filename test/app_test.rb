@@ -2,6 +2,7 @@ require_relative 'test_helper'
 
 class AppTest < Minitest::Test
   include Rack::Test::Methods
+  include AdminLogin
 
   def app
     AsxpioWeb
@@ -19,10 +20,6 @@ class AppTest < Minitest::Test
       flunk("no CSRF token found on #{path}")
   end
 
-  def admin_env(extra = {})
-    { 'HTTP_AUTHORIZATION' =>
-        "Basic #{Base64.strict_encode64("#{ENV['ADMIN_USER']}:#{ENV['ADMIN_PASSWORD']}")}" }.merge(extra)
-  end
 
   # --- public pages ---------------------------------------------------------
 
@@ -55,9 +52,13 @@ class AppTest < Minitest::Test
 
   # --- admin ------------------------------------------------------------
 
-  def test_admin_requires_auth
+  def test_admin_requires_login
+    skip 'TEST_DATABASE_URL not set' unless TestDb.available?
     get '/admin/invoices'
-    assert_equal 401, last_response.status
+    assert_equal 302, last_response.status
+    assert_match %r{/admin/login\?next=%2Fadmin%2Finvoices\z}, last_response.location
+    post '/admin/invoices'
+    assert_includes [401, 403], last_response.status
   end
 
   def test_admin_list_with_auth

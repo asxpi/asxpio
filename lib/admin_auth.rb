@@ -1,35 +1,141 @@
-require 'rack/auth/basic'
 require 'rack/utils'
+require_relative 'rate_limit'
 
-# Rack middleware that gates everything under /admin/* behind HTTP Basic.
-# Credentials come from ENV at boot; missing vars fail closed (401 always).
-class AdminAuth
-  def initialize(app)
-    @app  = app
-    @user = ENV['ADMIN_USER']
-    @pass = ENV['ADMIN_PASSWORD']
-  end
+# Session login for /admin/*, replacing the old shared HTTP Basic gate.
+#
+# - Accounts live in `users` (lib/user.rb); the session stores user id +
+#   session_version, so bumping the version logs that user out everywhere.
+# - ADMIN_USER/ADMIN_PASSWORD only work while no active superuser exists
+#   (first boot, or recovery); using them (re)creates that superuser.
+# - Paths in PUBLIC need no login (login itself, invite/reset links).
+module AdminAuth
+  PUBLIC = %r{\A/admin/(login|invite/[^/]+|reset(/[^/]+)?)\z}
+  # Reachable by any logged-in user regardless of permissions.
+  OPEN   = %r{\A/admin(/account/password|/logout)?\z}
 
-  def call(env)
-    path = env['PATH_INFO'].to_s
-    return @app.call(env) unless path == '/admin' || path.start_with?('/admin/')
+  class << self
+    attr_writer :login_limit
 
-    auth = Rack::Auth::Basic::Request.new(env)
-    if @user && @pass && auth.provided? && auth.basic? && credentials_match?(auth.credentials)
-      @app.call(env)
-    else
-      [401,
-       { 'content-type' => 'text/plain', 'www-authenticate' => 'Basic realm="asxp.io admin"' },
-       ["Unauthorized\n"]]
+    def login_limit
+      @login_limit ||= RateLimit.new(limit: Integer(ENV.fetch('LOGIN_RATE_LIMIT', '10')), window: 900)
     end
   end
 
-  private
+  module Helpers
+    def current_user
+      return @current_user if defined?(@current_user)
+      uid = session[:uid]
+      user = uid && User[uid]
+      @current_user = user if user&.active && user.session_version == session[:uv]
+    end
 
-  def credentials_match?(creds)
-    user, pass = creds
-    # Single & so both comparisons always run (no short-circuit timing signal).
-    Rack::Utils.secure_compare(@user, user.to_s) &
-      Rack::Utils.secure_compare(@pass, pass.to_s)
+    def admin_path?(path = request.path_info)
+      path == '/admin' || path.start_with?('/admin/')
+    end
+
+    def log_in!(user)
+      session.clear # fresh session id/CSRF token after authentication
+      session[:uid] = user.id
+      session[:uv]  = user.session_version
+      user.update(last_login_at: Time.now.utc)
+      @current_user = user
+    end
+
+    def env_credentials?(username, pass)
+      u, p = ENV['ADMIN_USER'].to_s, ENV['ADMIN_PASSWORD'].to_s
+      return false if u.empty? || p.empty?
+      Rack::Utils.secure_compare(u.downcase, username.to_s.strip.downcase) &
+        Rack::Utils.secure_compare(p, pass.to_s)
+    end
+
+    def safe_next(target)
+      target.to_s.match?(%r{\A/admin(/[\w\-/]*)?\z}) ? target : '/admin'
+    end
+  end
+
+  def self.registered(app)
+    app.helpers Helpers
+
+    app.before do
+      next unless admin_path?
+      halt 503, 'Admin needs DATABASE_URL.' unless defined?(User)
+      next if request.path_info.match?(PUBLIC)
+      unless current_user
+        redirect "/admin/login?next=#{Rack::Utils.escape(request.fullpath)}" if request.get?
+        halt 401, 'Login required'
+      end
+      if current_user.must_change_password && !request.path_info.match?(%r{\A/admin/(account/password|logout)\z})
+        redirect '/admin/account/password'
+      end
+      halt 403, 'Forbidden' unless current_user.superuser || request.path_info.match?(OPEN)
+    end
+
+    app.get '/admin/login' do
+      redirect '/admin' if current_user
+      @page_title = 'Log in · admin'
+      @noindex    = true
+      @next       = safe_next(params[:next])
+      erb :'admin/login'
+    end
+
+    app.post '/admin/login' do
+      @next = safe_next(params[:next])
+      unless AdminAuth.login_limit.allow?(client_ip)
+        @error = 'Too many attempts. Try again in 15 minutes.'
+        status 429
+        return erb :'admin/login'
+      end
+      user = User.authenticate(params[:username], params[:password])
+      if !user && !User.active_superuser? && env_credentials?(params[:username], params[:password])
+        # Recovery: no usable superuser left, so the env credentials restore one.
+        name = ENV['ADMIN_USER'].strip.downcase
+        user = User[username: name] || User.new(username: name)
+        user.set(superuser: true, active: true)
+        user.password = ENV['ADMIN_PASSWORD']
+        user.save
+        $logger.warn("users: emergency login restored superuser #{name} from #{client_ip}")
+      end
+      if user
+        log_in!(user)
+        redirect @next
+      else
+        $logger.info("users: failed login for #{params[:username].to_s[0, 64].inspect} from #{client_ip}")
+        @error = 'Wrong username or password.'
+        status 401
+        erb :'admin/login'
+      end
+    end
+
+    app.post '/admin/logout' do
+      session.clear
+      redirect '/admin/login'
+    end
+
+    app.get '/admin/account/password' do
+      @page_title = 'Change password · admin'
+      @noindex    = true
+      erb :'admin/account_password'
+    end
+
+    app.post '/admin/account/password' do
+      u = current_user
+      @error =
+        if !u.authenticate(params[:current])        then 'Current password is wrong.'
+        elsif params[:password].to_s.length < User::MIN_PASS then "New password needs at least #{User::MIN_PASS} characters."
+        elsif params[:password] != params[:confirm] then 'Passwords do not match.'
+        end
+      if @error
+        @page_title = 'Change password · admin'
+        @noindex    = true
+        status 422
+        return erb :'admin/account_password'
+      end
+      u.password = params[:password]
+      u.must_change_password = false
+      u.session_version += 1 # other sessions out
+      u.save
+      log_in!(u)
+      redirect '/admin'
+    end
   end
 end

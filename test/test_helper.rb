@@ -10,6 +10,8 @@ ENV['MAIL_FROM']       ||= 'Test <test@example.com>'
 ENV['MAIL_TO']         ||= 'owner@example.com'
 ENV['ADMIN_USER']      ||= 'admin'
 ENV['ADMIN_PASSWORD']  ||= 'test-password'
+ENV['SCRYPT_LOG_N']    ||= '10'    # cheap hashes in tests
+ENV['LOGIN_RATE_LIMIT'] ||= '10000'
 
 # DB-backed tests run only against an explicit test database (bin/test
 # provisions an ephemeral one). Never fall through to a developer DATABASE_URL.
@@ -33,6 +35,26 @@ require 'rack/test'
 
 Mail.defaults { delivery_method :test }
 
+# Logs the rack-test session in through the real form (CSRF included).
+# `admin_env` keeps the old call sites working: it logs in once per test
+# and returns extra env to merge.
+module AdminLogin
+  def admin_login!(username: ENV['ADMIN_USER'], password: ENV['ADMIN_PASSWORD'])
+    User[username: username] ||
+      User.create(username: username, superuser: true, password: password)
+    get '/admin/login'
+    token = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post '/admin/login', { authenticity_token: token, username: username, password: password }
+    raise "login failed: #{last_response.status}" unless last_response.redirect?
+    @admin_logged_in = true
+  end
+
+  def admin_env(extra = {})
+    admin_login! unless @admin_logged_in
+    extra
+  end
+end
+
 module TestDb
   def self.available?
     !ENV['DATABASE_URL'].nil?
@@ -40,5 +62,9 @@ module TestDb
 
   def self.clean!
     DB.connection[:invoices].delete
+  end
+
+  def self.clean_users!
+    DB.connection[:users].delete
   end
 end

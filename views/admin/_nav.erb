@@ -2,4 +2,10 @@
     <% [['/admin', 'dashboard'], ['/admin/invoices', 'invoices'], ['/admin/bingo', 'bingo']].each do |href, label| %>
         <a href="<%= href %>" class="<%= 'active' if href == '/admin' ? request.path == '/admin' : request.path.start_with?(href) %>"><%= label %></a>
     <% end %>
+    <% if current_user %>
+        <span class="admin-nav-user">
+            <a href="/admin/account/password" title="Change password"><%= current_user.username %></a>
+            <form method="post" action="/admin/logout"><input type="hidden" name="authenticity_token" value="<%= csrf_token %>" /><button type="submit" class="link-button">log out</button></form>
+        </span>
+    <% end %>
 </nav>

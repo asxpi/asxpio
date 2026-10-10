@@ -356,6 +356,9 @@ a:hover {
     font-size: 0.85rem;
 }
 .admin-nav a { color: var(--text-dim); text-decoration: none; }
+.admin-nav-user { display: flex; gap: 8px; align-items: baseline; margin-left: 16px; padding-left: 16px; border-left: 1px solid var(--border); }
+.admin-nav-user form { display: inline; }
+.auth-form { max-width: 360px; margin: 0 auto; }
 .admin-nav a.active,
 .admin-nav a:hover { color: var(--text-bright); }
 .dash { display: grid; gap: 24px; }

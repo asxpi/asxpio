@@ -2,6 +2,7 @@ require_relative 'test_helper'
 
 class BingoTest < Minitest::Test
   include Rack::Test::Methods
+  include AdminLogin
 
   # Minimal well-formed JPEG: SOI, start-of-scan, data, EOI.
   JPEG = ("\xFF\xD8\xFF\xDA".b + [8].pack('n') + "\1\2\3\4\5\6data\xFF\xD9".b).freeze
@@ -20,10 +21,6 @@ class BingoTest < Minitest::Test
     end
   end
 
-  def admin_env
-    { 'HTTP_AUTHORIZATION' =>
-        "Basic #{Base64.strict_encode64("#{ENV['ADMIN_USER']}:#{ENV['ADMIN_PASSWORD']}")}" }
-  end
 
   def hit!(idx, kind: 'outage')
     Bingo::Incident.create(datacenter_id: @dcs[idx].id, occurred_on: Date.today, kind: kind,
@@ -247,10 +244,10 @@ class BingoTest < Minitest::Test
 
   # --- admin (served by AsxpioWeb) -------------------------------------------
 
-  def test_admin_requires_auth
+  def test_admin_requires_login
     @app = AsxpioWeb
     get '/admin/bingo'
-    assert_equal 401, last_response.status
+    assert_equal 302, last_response.status
   end
 
   def test_admin_dashboard

@@ -36,7 +36,7 @@ Banking details and registration number are deliberately not on the public page 
 - **aws-sdk-s3** against MinIO on the storage stack
 - In-memory `RateLimit` (5 req/hour/IP) — see `lib/rate_limit.rb`
 - `Rack::Protection::AuthenticityToken` for CSRF (uses session-stored token)
-- `AdminAuth` Rack middleware: HTTP Basic on `/admin/*`, credentials from env. Greedy-prefix bug fixed; only `/admin` exact and `/admin/` paths are gated, so sibling assets like `/admin-invoice-form.js` stay public.
+- `AdminAuth` (`lib/admin_auth.rb`, a Sinatra extension): session login at `/admin/login` against the `users` table (`lib/user.rb`, scrypt via OpenSSL, no gem). Session holds user id + `session_version` (bump = logged out everywhere). `ADMIN_USER`/`ADMIN_PASSWORD` bootstrap the first superuser on an empty table and otherwise work only while no active superuser exists (recovery; it re-creates that superuser). Login is rate-limited per IP (`LOGIN_RATE_LIMIT`, default 10/15 min).
 - Honeypot field named `website` for spam
 - Static assets in `public/`; views in `views/`
 - Deploy: `Dockerfile` + `docker-compose.yml` (Traefik labels for asxp.io / www.asxp.io). Container joins two external Docker networks: `traefik` (ingress) and `storage` (Postgres + MinIO).

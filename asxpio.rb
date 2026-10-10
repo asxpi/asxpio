@@ -37,6 +37,8 @@ if ENV['DATABASE_URL']
   require_relative 'lib/invoice_pdf'
   require_relative 'lib/bingo'
   Bingo.seed!
+  require_relative 'lib/user'
+  User.bootstrap!(ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD'])
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
 end
@@ -63,7 +65,7 @@ class AsxpioWeb < Sinatra::Base
       same_site:    :lax
 
   use Rack::Protection::AuthenticityToken
-  use AdminAuth
+  register AdminAuth
   register BingoAdmin
 
   Mailer.configure!
