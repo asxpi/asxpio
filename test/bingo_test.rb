@@ -194,6 +194,7 @@ class BingoTest < Minitest::Test
     get '/en'
     body = last_response.body
     assert_includes body, '<title>Datacenter Bingo — strikes'
+    assert_match %r{<h1>Datacenter <span>Bingo</span> <small>Drone strikes, fires and outages at Russia&#39;s 25 largest datacenters</small></h1>}, body
     assert_includes body, '1 of Russia&#39;s 25 largest'
     assert_includes body, '<meta property="og:image" content="https://example.org/p/dc-4-0123abcd-1200.webp">'
     assert_includes body, 'src="/p/dc-4-0123abcd-480.webp"'

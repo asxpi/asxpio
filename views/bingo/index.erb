@@ -1,7 +1,7 @@
 <% b = @board %>
 <main>
   <header>
-    <h1><%= t(:lead) %> <span><%= t(:accent) %></span></h1>
+    <h1><%= t(:lead) %> <span><%= t(:accent) %></span> <small><%= t(:tagline) %></small></h1>
     <div class="switches">
       <nav class="toggle" aria-label="<%= t(:view_label) %>">
         <% Bingo::VIEWS.each do |v| %>
