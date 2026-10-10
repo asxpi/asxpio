@@ -248,6 +248,9 @@ class BingoTest < Minitest::Test
     crumbs = ld['@graph'].find { |n| n['@type'] == 'BreadcrumbList' }
     assert_equal 'https://example.org/en', crumbs['itemListElement'][0]['item']
 
+    @dcs[3].update(mw_type: 'design')
+    get '/en/dc/dc-4'
+    assert_includes last_response.body, 'Capacity: 4 MW (design).'
     get '/uk/dc/dc-1'
     assert_includes last_response.body, '<title>ЦОД 1 (Москва) — інциденти ЦОДу | Бінго ЦОДів</title>'
     refute_includes last_response.body, 'rel="prev"'

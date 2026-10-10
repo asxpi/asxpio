@@ -86,7 +86,7 @@ class BingoWeb < Sinatra::Base
     # Plain-language facts for the datacenter page and its meta description.
     def dc_facts(dc)
       [format(t(:dc_intro), name: dc.l(:name, @locale), city: dc.l(:city, @locale), operator: dc.operator),
-       (format(t(:dc_capacity), mw: mw(dc)) if mw(dc)),
+       (format(t(:dc_capacity), mw: mw_prose(dc)) if mw(dc)),
        { 'building' => t(:dc_building), 'planned' => t(:dc_planned) }[dc.status] || (dc.year && format(t(:dc_since), dc.year)),
        format(t(:dc_rank), pos: dc.position)].compact
     end
@@ -113,6 +113,12 @@ class BingoWeb < Sinatra::Base
       return "#{dc.mw} #{t(:mva)}" if dc.mw_type == 'mva'
       tag &&= t(:mw_types)[dc.mw_type]
       ["#{dc.mw} #{t(:mw)}", tag || nil].compact.join(' · ')
+    end
+
+    # "63 MW (design)": the dialog's " · design" tag reads badly in a sentence.
+    def mw_prose(dc)
+      tag = dc.mw_type != 'mva' && t(:mw_types)[dc.mw_type]
+      tag ? "#{mw(dc, tag: false)} (#{tag})" : mw(dc)
     end
 
     # Badge for anything not yet in service.
