@@ -151,6 +151,28 @@ class UsersAdminTest < Minitest::Test
     assert_includes last_response.body, 'judy'
   end
 
+  def test_superuser_renames_including_self
+    admin_login!
+    me = User[username: ENV['ADMIN_USER']]
+    post "/admin/users/#{me.id}", { authenticity_token: token, username: 'Renamed', name: '' }
+    assert_equal 'renamed', me.refresh.username
+    get '/admin'
+    assert last_response.ok?                               # session survives
+    other = User.create(username: 'taken', password: 'taken-password-1')
+    post "/admin/users/#{me.id}", { authenticity_token: token, username: 'taken', name: '' }
+    assert_equal 'renamed', me.refresh.username            # duplicate refused
+    assert_includes DB.connection[:audit_log].select_map(:action), 'user.rename'
+  end
+
+  def test_non_superuser_cannot_rename
+    boss = User.create(username: 'manager', password: 'manager-pass-1')
+    UserPermission.create(user_id: boss.id, area: 'users', can_read: true, can_write: true)
+    t = User.create(username: 'target', password: 'target-password1')
+    admin_login!(username: 'manager', password: 'manager-pass-1')
+    post "/admin/users/#{t.id}", { authenticity_token: token, username: 'hijacked', name: '', active: '1' }
+    assert_equal 'target', t.refresh.username
+  end
+
   def test_users_read_only_cannot_create
     u = User.create(username: 'viewer', password: 'viewer-password1')
     UserPermission.create(user_id: u.id, area: 'users', can_read: true)

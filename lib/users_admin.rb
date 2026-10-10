@@ -112,6 +112,11 @@ module UsersAdmin
       manageable!(user)
       self_edit = user.id == current_user.id
       before = perm_summary(user)
+      old_name = user.username
+      # Superusers may rename accounts; login sessions survive (they key on id).
+      if current_user.superuser && params[:username] && !params[:username].strip.empty?
+        user.username = params[:username].strip.downcase
+      end
       user.name  = params[:name].to_s.strip
       user.email = params[:email].to_s.strip.downcase.then { |e| e.empty? ? nil : e }
       unless self_edit # you can't lock yourself out
@@ -120,13 +125,16 @@ module UsersAdmin
         user.active = active
         user.superuser = params[:superuser] == '1' if current_user.superuser
       end
-      if !user.valid? || (user.email && User.exclude(id: user.id).where(email: user.email).any?)
-        session[:users_flash] = user.errors.full_messages.join('; ').then { |m| m.empty? ? 'Email already in use.' : m }
+      taken = User.exclude(id: user.id).where(username: user.username).any? ||
+              (user.email && User.exclude(id: user.id).where(email: user.email).any?)
+      if !user.valid? || taken
+        session[:users_flash] = user.errors.full_messages.join('; ').then { |m| m.empty? ? 'Username or email already in use.' : m }
         redirect "/admin/users/#{user.id}"
       end
       perms = permission_params(user) # read before saving changes
       user.save
       save_permissions!(user, perms) unless user.superuser
+      audit!('user.rename', user.username, "#{old_name} → #{user.username}") if old_name != user.username
       audit!('user.update', user.username, "#{before} → #{perm_summary(user.refresh)}#{' (disabled)' unless user.active}")
       session[:users_flash] = 'Saved.'
       redirect "/admin/users/#{user.id}"
