@@ -39,15 +39,29 @@ class BingoWeb < Sinatra::Base
             'publisher' => { '@type' => 'Person', 'name' => 'asxpi', 'url' => 'https://asxp.io' } },
           { '@type' => 'ItemList', 'url' => url, 'name' => t(:seo_title), 'description' => desc,
             'inLanguage' => @locale, 'numberOfItems' => board.cells.size,
+            'dateModified' => board.updated_on&.utc&.iso8601,
             'itemListElement' => board.cells.each_with_index.map do |dc, i|
-              place = { '@type' => 'Place', 'name' => dc.l(:name, @locale),
-                        'address' => { '@type' => 'PostalAddress', 'addressLocality' => dc.l(:city, @locale), 'addressCountry' => 'RU' } }
-              place['image'] = "#{base_url}#{photo_path(dc, 1200)}" if dc.photo_key
-              place['sameAs'] = dc.info_url if dc.info_url
-              { '@type' => 'ListItem', 'position' => i + 1, 'item' => place }
-            end }
+              { '@type' => 'ListItem', 'position' => i + 1, 'item' => ld_place(dc) }
+            end }.compact
         ]
       ).gsub('</', '<\/')
+    end
+
+    # The info_url describes the datacenter (operator page, news), it isn't
+    # the datacenter's own identity, so subjectOf rather than sameAs.
+    # Incidents are Events at the place.
+    def ld_place(dc)
+      address = { '@type' => 'PostalAddress', 'addressLocality' => dc.l(:city, @locale), 'addressCountry' => 'RU' }
+      place = { '@type' => 'Place', 'name' => dc.l(:name, @locale), 'address' => address }
+      place['image'] = "#{base_url}#{photo_path(dc, 1200)}" if dc.photo_key
+      place['subjectOf'] = { '@type' => 'CreativeWork', 'url' => dc.info_url } if dc.info_url
+      events = dc.incidents.map do |i|
+        { '@type' => 'Event', 'name' => "#{kind_label(i.kind)}: #{i.l(:title, @locale)}",
+          'startDate' => i.occurred_on.iso8601, 'url' => i.url,
+          'location' => { '@type' => 'Place', 'name' => place['name'], 'address' => address } }.compact
+      end
+      place['event'] = events if events.any?
+      place
     end
 
     # Preview image: the most recent hit with a photo, else the first photo.

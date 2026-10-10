@@ -209,6 +209,7 @@ class BingoTest < Minitest::Test
   def test_seo_head
     hit!(3)
     @dcs[3].update(photo_key: 'bingo/dc-4-0123abcd.jpg', photo_variants: true)
+    @dcs[0].update(info_url: 'https://example.com/dc-1')
     get '/en'
     body = last_response.body
     assert_includes body, '<title>Datacenter Bingo — strikes'
@@ -228,6 +229,13 @@ class BingoTest < Minitest::Test
     list = ld['@graph'].find { |n| n['@type'] == 'ItemList' }
     assert_equal 25, list['itemListElement'].size
     assert_equal 'DC 1', list['itemListElement'][0]['item']['name']
+    hit = list['itemListElement'][3]['item']
+    assert_equal Date.today.iso8601, hit['event'][0]['startDate']
+    assert_equal 'Outage: Авария 3', hit['event'][0]['name']
+    refute list['itemListElement'][0]['item'].key?('event')
+    assert_equal({ '@type' => 'CreativeWork', 'url' => 'https://example.com/dc-1' }, list['itemListElement'][0]['item']['subjectOf'])
+    refute_includes body, 'sameAs'
+    assert list['dateModified']
   end
 
   def test_photo_falls_back_to_original_without_variants
