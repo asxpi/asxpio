@@ -11,17 +11,21 @@
     <h2>Photo</h2>
     <% if @dc.photo_file %>
         <p><img src="/admin/bingo/p/<%= @dc.photo_file %>" alt="" style="max-width: 100%; max-height: 280px" /></p>
+        <% if can?('bingo', 'delete') %>
         <form method="post" action="/admin/bingo/dc/<%= @dc.id %>/photo/delete">
             <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
             <button type="submit" class="link-button">remove from card</button>
         </form>
+        <% end %>
     <% end %>
+    <% if can?('bingo', 'write') %>
     <form class="invoice-form" method="post" action="/admin/bingo/dc/<%= @dc.id %>/photo" enctype="multipart/form-data">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <div class="field"><label for="photo">Upload <span class="optional">(JPEG/PNG/WebP, ≤ 8 MB)</span></label><input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" /></div>
         <div class="field"><label for="photo_url">…or import from URL <span class="optional">(blank = saved source URL)</span></label><input type="url" id="photo_url" name="url" placeholder="<%= @dc.photo_source_url %>" /></div>
         <button type="submit" class="download-button">Store photo</button>
     </form>
+    <% end %>
 </section>
 <% end %>
 
@@ -29,6 +33,7 @@
     <h2>Details</h2>
     <form class="invoice-form" method="post" action="<%= fresh ? '/admin/bingo/dc' : "/admin/bingo/dc/#{@dc.id}" %>" autocomplete="off">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <fieldset class="plain" <%= 'disabled' unless can?('bingo', 'write') %>>
         <% if fresh %>
             <div class="field"><label for="slug">Slug <span class="optional">(permanent; used in photo names, e.g. ix-mos7)</span></label><input type="text" id="slug" name="slug" value="<%= @dc.slug %>" required pattern="[a-z0-9]+(-[a-z0-9]+)*" /></div>
         <% end %>
@@ -60,11 +65,12 @@
         <div class="field"><label for="photo_credit">Photo credit</label><input type="text" id="photo_credit" name="photo_credit" value="<%= @dc.photo_credit %>" /></div>
         <div class="field"><label for="photo_source_url">Photo source URL</label><input type="url" id="photo_source_url" name="photo_source_url" value="<%= @dc.photo_source_url %>" /></div>
         <div class="field"><label for="info_url">Info / fact source URL</label><input type="url" id="info_url" name="info_url" value="<%= @dc.info_url %>" /></div>
-        <button type="submit" class="download-button"><%= fresh ? 'Add datacenter' : 'Save' %></button>
+        <% if can?('bingo', 'write') %><button type="submit" class="download-button"><%= fresh ? 'Add datacenter' : 'Save' %></button><% end %>
+        </fieldset>
     </form>
 </section>
 
-<% unless fresh %>
+<% if !fresh && can?('bingo', 'delete') %>
 <section class="section">
     <h2>Danger zone</h2>
     <form method="post" action="/admin/bingo/dc/<%= @dc.id %>/delete" onsubmit="return confirm('Delete this datacenter and all its incidents? This cannot be undone.')">

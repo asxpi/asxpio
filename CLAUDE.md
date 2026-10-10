@@ -37,6 +37,7 @@ Banking details and registration number are deliberately not on the public page 
 - In-memory `RateLimit` (5 req/hour/IP) — see `lib/rate_limit.rb`
 - `Rack::Protection::AuthenticityToken` for CSRF (uses session-stored token)
 - `AdminAuth` (`lib/admin_auth.rb`, a Sinatra extension): session login at `/admin/login` against the `users` table (`lib/user.rb`, scrypt via OpenSSL, no gem). Session holds user id + `session_version` (bump = logged out everywhere). `ADMIN_USER`/`ADMIN_PASSWORD` bootstrap the first superuser on an empty table and otherwise work only while no active superuser exists (recovery; it re-creates that superuser). Login is rate-limited per IP (`LOGIN_RATE_LIMIT`, default 10/15 min).
+- Permissions (`lib/admin_acl.rb`): areas `invoices`, `bingo`, `users` × independent flags read/write/delete in `user_permissions` (read + delete without write is valid); superusers bypass. GET → read (…/new, …/duplicate → write), POST …/delete|…/disable → delete, other POST → write. Unmapped /admin paths are superuser-only, and `test/admin_acl_test.rb` fails if a registered admin route isn't mapped — add new admin routes to `AdminACL::RULES`. Views hide forms via `can?(area, perm)`; the server check is the real gate.
 - Honeypot field named `website` for spam
 - Static assets in `public/`; views in `views/`
 - Deploy: `Dockerfile` + `docker-compose.yml` (Traefik labels for asxp.io / www.asxp.io). Container joins two external Docker networks: `traefik` (ingress) and `storage` (Postgres + MinIO).

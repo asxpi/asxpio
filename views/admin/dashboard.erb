@@ -4,6 +4,7 @@
 </div>
 
 <div class="dash">
+    <% if @inv %>
     <section class="section dash-tile">
         <h2><a href="/admin/invoices">Invoices</a></h2>
         <div class="stats">
@@ -28,9 +29,11 @@
                 </tbody>
             </table>
         <% end %>
-        <p><a href="/admin/invoices/new">+ New invoice</a> · <a href="/admin/invoices">all invoices</a></p>
+        <p><% if can?('invoices', 'write') %><a href="/admin/invoices/new">+ New invoice</a> · <% end %><a href="/admin/invoices">all invoices</a></p>
     </section>
+    <% end %>
 
+    <% if @bingo %>
     <section class="section dash-tile">
         <h2><a href="/admin/bingo">Bingo</a></h2>
         <div class="stats">
@@ -46,4 +49,8 @@
         <% end %>
         <p><a href="/admin/bingo">manage</a><% if bingo_public_url %> · <a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %></p>
     </section>
+    <% end %>
+    <% unless @inv || @bingo %>
+        <section class="section"><p>No areas are assigned to your account yet. Ask an administrator for access.</p></section>
+    <% end %>
 </div>

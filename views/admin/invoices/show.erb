@@ -34,14 +34,16 @@
         Share this URL with the client:<br />
         <code class="mono">https://asxp.io/i/<%= @invoice.uuid %></code>
     </p>
+    <% if can?('invoices', 'write') %>
     <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid" style="margin-top: 14px;">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <button type="submit">
             <% if @invoice.paid? %>Mark unpaid<% else %>Mark paid<% end %>
         </button>
     </form>
+    <% end %>
     <p style="margin-top: 14px;">
-        <a href="/admin/invoices/<%= @invoice.uuid %>/duplicate">Use as template for a new invoice →</a>
+        <% if can?('invoices', 'write') %><a href="/admin/invoices/<%= @invoice.uuid %>/duplicate">Use as template for a new invoice →</a><% end %>
     </p>
 </section>
 

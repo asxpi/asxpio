@@ -1,5 +1,6 @@
 require 'rack/utils'
 require_relative 'rate_limit'
+require_relative 'admin_acl'
 
 # Session login for /admin/*, replacing the old shared HTTP Basic gate.
 #
@@ -27,6 +28,11 @@ module AdminAuth
       uid = session[:uid]
       user = uid && User[uid]
       @current_user = user if user&.active && user.session_version == session[:uv]
+    end
+
+    # For views: show a form/button only if the user may use it.
+    def can?(area, perm)
+      current_user&.can?(area, perm) || false
     end
 
     def admin_path?(path = request.path_info)
@@ -67,7 +73,9 @@ module AdminAuth
       if current_user.must_change_password && !request.path_info.match?(%r{\A/admin/(account/password|logout)\z})
         redirect '/admin/account/password'
       end
-      halt 403, 'Forbidden' unless current_user.superuser || request.path_info.match?(OPEN)
+      unless AdminACL.allowed?(current_user, request.request_method, request.path_info)
+        halt 403, 'You do not have access to this.'
+      end
     end
 
     app.get '/admin/login' do

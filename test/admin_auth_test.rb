@@ -84,7 +84,7 @@ class AdminAuthTest < Minitest::Test
     assert_equal 302, last_response.status
   end
 
-  def test_non_superuser_limited_to_open_pages_in_phase_one
+  def test_user_without_permissions_limited_to_open_pages
     User.create(username: 'bob', password: 'bob-password-12')
     login('bob', 'bob-password-12')
     get '/admin'

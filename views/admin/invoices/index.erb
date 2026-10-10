@@ -1,12 +1,12 @@
 <%== erb :'admin/_nav', layout: false %>
 <div class="header">
     <h1>Invoices</h1>
-    <p class="tagline"><a href="/admin/invoices/new">+ New invoice</a></p>
+    <% if can?('invoices', 'write') %><p class="tagline"><a href="/admin/invoices/new">+ New invoice</a></p><% end %>
 </div>
 
 <% if @invoices.empty? %>
     <section class="section">
-        <p>No invoices yet. <a href="/admin/invoices/new">Create the first one</a>.</p>
+        <p>No invoices yet.<% if can?('invoices', 'write') %> <a href="/admin/invoices/new">Create the first one</a>.<% end %></p>
     </section>
 <% else %>
     <section class="section">
