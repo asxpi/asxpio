@@ -99,6 +99,11 @@ module Bingo
       super
     end
 
+    def before_save
+      self.updated_at = Time.now.utc
+      super
+    end
+
     def operational? = status == 'operational'
     def planned?     = status == 'planned'
 
@@ -126,8 +131,19 @@ module Bingo
     include Localized
     many_to_one :datacenter, class: 'Bingo::Datacenter'
 
+    # A removed incident changes its datacenter's cell.
+    def after_destroy
+      super
+      Datacenter.where(id: datacenter_id).update(updated_at: Time.now.utc)
+    end
+
     def before_create
       self.created_at ||= Time.now.utc
+      super
+    end
+
+    def before_save
+      self.updated_at = Time.now.utc
       super
     end
   end
@@ -145,7 +161,7 @@ module Bingo
       hit   = cells.map { |dc| dc.incidents.any? }
       wins  = LINES.select { |line| line.all? { |i| hit[i] } }
       incidents = cells.flat_map(&:incidents).sort_by { |i| [i.occurred_on, i.id] }.reverse
-      updated = [Datacenter.max(:created_at), Incident.max(:created_at)].compact.max
+      updated = [Datacenter.max(:updated_at), Incident.max(:updated_at)].compact.max
       new(cells, hit, wins, incidents, updated, view)
     end
 
@@ -364,7 +380,10 @@ module Bingo
   end
 
   def self.renumber!(ids = Datacenter.order(:position, :id).select_map(:id))
-    ids.each_with_index { |id, i| Datacenter.where(id: id).update(position: i + 1) }
+    now = Time.now.utc
+    ids.each_with_index do |id, i|
+      Datacenter.where(id: id).exclude(position: i + 1).update(position: i + 1, updated_at: now)
+    end
   end
 
   # "64" → 64.0, "25–30" → 30.0, ">40" → 40.0, "13,7" → 13.7, "" → nil
@@ -388,14 +407,14 @@ module Bingo
     path = File.join($root, 'db', 'bingo_seed.json')
     return unless File.exist?(path)
     seed = JSON.parse(File.read(path, encoding: 'UTF-8'))
-    cols = Datacenter.columns.map(&:to_s) - %w[id created_at]
+    cols = Datacenter.columns.map(&:to_s) - %w[id created_at updated_at]
     DB.connection.transaction do
       ids = seed.fetch('datacenters').each_with_index.to_h do |row, i|
         dc = Datacenter.create(row.slice(*cols).merge('position' => row['position'] || i + 1))
         [dc.slug, dc.id]
       end
       seed.fetch('incidents', []).each do |row|
-        Incident.create(row.slice(*(Incident.columns.map(&:to_s) - %w[id created_at datacenter_id]))
+        Incident.create(row.slice(*(Incident.columns.map(&:to_s) - %w[id created_at updated_at datacenter_id]))
                            .merge('datacenter_id' => ids.fetch(row.fetch('slug'))))
       end
     end

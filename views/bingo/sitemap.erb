@@ -3,8 +3,8 @@
 <% Bingo::LOCALES.each do |l| %>
   <url>
     <loc><%= base_url %>/<%= l %></loc>
-<% if @lastmod %>    <lastmod><%= @lastmod.utc.strftime('%Y-%m-%d') %></lastmod>
-<% end %>    <changefreq>daily</changefreq>
+<% if @lastmod %>    <lastmod><%= @lastmod.utc.iso8601 %></lastmod>
+<% end %>
 <% Bingo::LOCALES.each do |alt| %>    <xhtml:link rel="alternate" hreflang="<%= alt %>" href="<%= base_url %>/<%= alt %>"/>
 <% end %>    <xhtml:link rel="alternate" hreflang="x-default" href="<%= base_url %>/"/>
   </url>

@@ -221,7 +221,7 @@ module BingoAdmin
 
     app.post '/admin/bingo/incidents/:id/delete' do
       inc = Bingo::Incident[params[:id].to_i]
-      Bingo::Incident.where(id: params[:id].to_i).delete
+      inc&.destroy # hook bumps the datacenter's updated_at
       audit!('bingo.incident_delete', inc&.datacenter&.slug, inc && "#{inc.occurred_on} #{inc.title_ru}")
       session[:bingo_flash] = 'Incident deleted.'
       redirect '/admin/bingo'

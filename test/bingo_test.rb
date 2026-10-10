@@ -175,6 +175,21 @@ class BingoTest < Minitest::Test
     assert last_response.ok?
     %w[ru en uk].each { |l| assert_includes last_response.body, "<loc>https://example.org/#{l}</loc>" }
     assert_includes last_response.body, 'hreflang="x-default"'
+    refute_includes last_response.body, 'changefreq'
+    assert_match %r{</loc>\n    <lastmod>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ</lastmod>\n    <xhtml:link}, last_response.body
+  end
+
+  def test_updated_on_follows_edits_and_deletes
+    old = Time.utc(2026, 1, 1)
+    DB.connection[:bingo_datacenters].update(created_at: old, updated_at: old)
+    assert_equal old, Bingo::Board.load.updated_on
+    @dcs[5].refresh.update(name_en: 'Renamed')
+    assert_operator Bingo::Board.load.updated_on, :>, old
+    DB.connection[:bingo_datacenters].update(updated_at: old)
+    inc = hit!(2)
+    DB.connection[:bingo_incidents].update(created_at: old, updated_at: old)
+    inc.refresh.destroy
+    assert_operator Bingo::Board.load.updated_on, :>, old
   end
 
   def test_asxpio_static_files_not_served
