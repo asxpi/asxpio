@@ -40,6 +40,8 @@ if ENV['DATABASE_URL']
   Bingo.seed!
   require_relative 'lib/user'
   require_relative 'lib/audit'
+  require_relative 'lib/payout_address'
+  PayoutAddress.seed_from_env!
   User.bootstrap!(ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD'])
 else
   $logger.warn('DATABASE_URL not set — invoicing disabled')
@@ -218,6 +220,27 @@ class AsxpioWeb < Sinatra::Base
       status 502
       { error: e.message }.to_json
     end
+  end
+
+  # Defined before /admin/invoices/:uuid, which would otherwise match it.
+  get '/admin/invoices/payout-addresses' do
+    @page_title = 'Payout addresses · admin'
+    @noindex    = true
+    @addresses  = PayoutAddress.as_hash(:coin)
+    @flash      = session.delete(:payout_flash)
+    erb :'admin/invoices/payout_addresses'
+  end
+
+  post '/admin/invoices/payout-addresses' do
+    before = PayoutAddress.map
+    errors = CryptoAsset::CODES.filter_map do |coin|
+      next unless params.dig('address', coin)
+      PayoutAddress.set!(coin, params['address'][coin], by: current_user.username)
+    end
+    changed = (before.keys | PayoutAddress.map.keys).reject { |c| before[c] == PayoutAddress.map[c] }
+    audit!('invoice.payout_addresses', changed.join(', '), nil) if changed.any?
+    session[:payout_flash] = errors.any? ? errors.join('; ') : "Saved#{" (#{changed.join(', ')})" if changed.any?}."
+    redirect '/admin/invoices/payout-addresses'
   end
 
   get '/admin/invoices/new' do

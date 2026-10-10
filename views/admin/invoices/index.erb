@@ -1,7 +1,7 @@
 <%== erb :'admin/_nav', layout: false %>
 <div class="header">
     <h1>Invoices</h1>
-    <% if can?('invoices', 'write') %><p class="tagline"><a href="/admin/invoices/new">+ New invoice</a></p><% end %>
+    <p class="tagline"><% if can?('invoices', 'write') %><a href="/admin/invoices/new">+ New invoice</a> · <% end %><a href="/admin/invoices/payout-addresses">payout addresses</a></p>
 </div>
 
 <% if @invoices.empty? %>

@@ -97,7 +97,7 @@
             <div class="field">
                 <label for="crypto_address">Address</label>
                 <input type="text" id="crypto_address" name="crypto_address"
-                       value="<%= @form_values[:crypto_address] || CryptoAsset.default_addresses[@form_values[:crypto_coin] || 'LTC'] %>"
+                       value="<%= @form_values[:crypto_address] || PayoutAddress.map[@form_values[:crypto_coin] || 'LTC'] %>"
                        placeholder="payout address" maxlength="128" />
             </div>
         </div>
@@ -115,7 +115,7 @@
                        placeholder="auto" inputmode="decimal" />
             </div>
         </div>
-        <script type="application/json" id="crypto-defaults"><%== CryptoAsset.default_addresses.to_json %></script>
+        <script type="application/json" id="crypto-defaults"><%== PayoutAddress.map.to_json %></script>
 
         <button type="submit" class="download-button">Create invoice</button>
     </form>

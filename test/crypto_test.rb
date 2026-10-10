@@ -17,9 +17,9 @@ class CryptoAssetTest < Minitest::Test
     refute CryptoAsset.valid?('DOGE')
   end
 
-  def test_default_addresses_from_json_env
+  def test_env_addresses_from_json_env
     ENV['CRYPTO_ADDRESSES'] = '{"BTC":"bc1qtest","usdt-trc20":"Ttest","DOGE":"ignored"}'
-    map = CryptoAsset.default_addresses
+    map = CryptoAsset.env_addresses
     assert_equal 'bc1qtest', map['BTC']
     assert_equal 'Ttest', map['USDT-TRC20']
     refute map.key?('DOGE')
@@ -29,14 +29,14 @@ class CryptoAssetTest < Minitest::Test
 
   def test_legacy_ltc_address_env_still_fills_ltc
     ENV['LTC_ADDRESS'] = 'ltc1legacy'
-    assert_equal 'ltc1legacy', CryptoAsset.default_addresses['LTC']
+    assert_equal 'ltc1legacy', CryptoAsset.env_addresses['LTC']
   ensure
     ENV.delete('LTC_ADDRESS')
   end
 
-  def test_default_addresses_survives_bad_json
+  def test_env_addresses_survives_bad_json
     ENV['CRYPTO_ADDRESSES'] = 'not json'
-    assert_equal({}, CryptoAsset.default_addresses)
+    assert_equal({}, CryptoAsset.env_addresses)
   ensure
     ENV.delete('CRYPTO_ADDRESSES')
   end

@@ -1,0 +1,30 @@
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1>Payout addresses</h1>
+    <p class="tagline"><a href="/admin/invoices">← invoices</a> · default address per coin, prefilled into new invoices</p>
+</div>
+
+<% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
+
+<section class="section">
+    <form class="invoice-form" method="post" action="/admin/invoices/payout-addresses" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <fieldset class="plain" <%= 'disabled' unless can?('invoices', 'write') %>>
+        <table class="invoice-list">
+            <thead><tr><th>Coin</th><th>Address</th><th>Updated</th></tr></thead>
+            <tbody>
+                <% CryptoAsset::CODES.each do |coin| %>
+                    <% row = @addresses[coin] %>
+                    <tr>
+                        <td><b class="mono"><%= coin %></b><br /><span class="optional"><%= CryptoAsset.name(coin) %></span></td>
+                        <td><input type="text" name="address[<%= coin %>]" value="<%= row&.address %>" class="mono" placeholder="not set" maxlength="128" spellcheck="false" /></td>
+                        <td class="optional"><%= row ? "#{row.updated_at.strftime('%Y-%m-%d')} · #{row.updated_by}" : '—' %></td>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+        <p class="optional">Leave a field empty to remove that default. Existing invoices keep the address captured when they were issued.</p>
+        <% if can?('invoices', 'write') %><button type="submit" class="download-button">Save addresses</button><% end %>
+        </fieldset>
+    </form>
+</section>

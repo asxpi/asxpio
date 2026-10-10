@@ -47,9 +47,11 @@ module CryptoAsset
   end
 
   # Default payout addresses for the new-invoice form. CRYPTO_ADDRESSES is a
-  # JSON object (code => address); the legacy LTC_ADDRESS env still fills LTC.
-  # Unknown codes are dropped so a typo in the env can't invent an asset.
-  def default_addresses
+  # Legacy source, now only used to seed the payout_addresses table once
+  # (PayoutAddress.seed_from_env!): CRYPTO_ADDRESSES is a JSON object
+  # (code => address); LTC_ADDRESS still fills LTC. Unknown codes are
+  # dropped so a typo in the env can't invent an asset.
+  def env_addresses
     map = begin
       JSON.parse(ENV['CRYPTO_ADDRESSES'].to_s)
     rescue JSON::ParserError
