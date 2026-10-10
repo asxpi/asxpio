@@ -44,6 +44,22 @@ class InvoiceCancelTest < Minitest::Test
     assert_equal 'pending', @inv.status
   end
 
+  # Every state of the admin invoice page renders (pending, paid,
+  # cancelled, hidden), for a superuser and for a read-only user.
+  def test_admin_invoice_page_renders_in_every_state
+    admin_login!
+    get "/admin/invoices/#{@inv.uuid}"
+    assert last_response.ok?, last_response.body[0, 300]
+    assert_includes last_response.body, 'Cancel invoice'
+    @inv.update(paid_at: Time.now.utc)
+    get "/admin/invoices/#{@inv.uuid}"
+    assert last_response.ok?, last_response.body[0, 300]
+    @inv.update(cancelled_at: Time.now.utc, cancel_reason: 'dup', hidden: true)
+    get "/admin/invoices/#{@inv.uuid}"
+    assert last_response.ok?, last_response.body[0, 300]
+    assert_includes last_response.body, 'Reinstate'
+  end
+
   def test_cancelled_pdf_renders
     @inv.cancelled_at = Time.now.utc
     @inv.cancel_reason = 'wrong client'

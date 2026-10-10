@@ -69,9 +69,6 @@
         <% end %>
     </div>
     <% end %>
-        </button>
-    </form>
-    <% end %>
     <p style="margin-top: 14px;">
         <% if can?('invoices', 'write') %><a href="/admin/invoices/<%= @invoice.uuid %>/duplicate">Use as template for a new invoice →</a><% end %>
     </p>
