@@ -1,6 +1,7 @@
+<%== erb :'admin/_nav', layout: false %>
 <div class="header">
     <h1>Invoices</h1>
-    <p class="tagline"><a href="/admin/invoices/new">+ New invoice</a> · <a href="/admin/bingo">bingo</a></p>
+    <p class="tagline"><a href="/admin/invoices/new">+ New invoice</a></p>
 </div>
 
 <% if @invoices.empty? %>

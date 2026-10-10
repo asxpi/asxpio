@@ -253,6 +253,30 @@ class BingoTest < Minitest::Test
     assert_equal 401, last_response.status
   end
 
+  def test_admin_dashboard
+    @app = AsxpioWeb
+    hit!(2)
+    DB.connection[:invoices].delete
+    inv = Invoice.build(client_name: 'ACME', client_email: 'b@example.com', currency: 'EUR', gel_rate: '3.05',
+                        due_on: (Date.today - 1).to_s,
+                        items: [{ 'description' => 'work', 'qty' => '2', 'unit_price' => '50' }])
+    inv.pdf_key = "invoices/#{inv.number}-#{inv.uuid}.pdf"
+    inv.save_changes
+    get '/admin', {}, admin_env
+    assert last_response.ok?, last_response.status.to_s
+    body = last_response.body
+    assert_includes body, '<h1>Dashboard</h1>'
+    assert_includes body, '1/25'                       # crossed out
+    assert_includes body, 'Авария 2'                   # latest incident
+    assert_includes body, 'href="/admin/invoices/new"'
+    assert_includes body, 'class="active">dashboard'
+    assert_includes body, inv.number
+    assert_includes body, 'EUR 100.00'                 # outstanding total
+    assert_match %r{<b>1</b><span>overdue</span>}, body
+  ensure
+    DB.connection[:invoices].delete
+  end
+
   def test_admin_records_and_deletes_incident
     @app = AsxpioWeb
     get '/admin/bingo', {}, admin_env

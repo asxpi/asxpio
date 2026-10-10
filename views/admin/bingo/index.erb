@@ -1,8 +1,8 @@
+<%== erb :'admin/_nav', layout: false %>
 <div class="header">
     <h1>Bingo</h1>
     <p class="tagline">
-        <a href="/admin/invoices">invoices</a>
-        <% if bingo_public_url %> · <a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %>
+        <% if bingo_public_url %><a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %>
     </p>
 </div>
 

@@ -130,8 +130,28 @@ class AsxpioWeb < Sinatra::Base
     halt 503, 'Invoicing not configured (DATABASE_URL missing).' unless defined?(Invoice)
   end
 
+  # Overview of every admin area; each tile links into its section.
   get '/admin' do
-    redirect '/admin/invoices'
+    @page_title = 'Dashboard · admin'
+    @noindex    = true
+    unpaid = Invoice.where(paid_at: nil).all
+    @inv = {
+      count:         Invoice.count,
+      unpaid:        unpaid,
+      overdue:       unpaid.count { |i| i.due_on < Date.today },
+      unpaid_totals: unpaid.group_by(&:currency).transform_values { |l| l.sum(&:total) },
+      recent:        Invoice.order(Sequel.desc(:created_at)).limit(5).all
+    }
+    board = Bingo::Board.load
+    @bingo = {
+      cells:         board.cells.size,
+      hit:           board.hit.count(true),
+      lines:         board.wins.size,
+      reserve:       [Bingo::Datacenter.count - board.cells.size, 0].max,
+      last_incident: board.incidents.first,
+      no_photo:      board.cells.reject(&:photo_key)
+    }
+    erb :'admin/dashboard'
   end
 
   get '/admin/invoices' do

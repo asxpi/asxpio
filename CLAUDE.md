@@ -78,7 +78,7 @@ If a form is ever reinstated, note that Traefik's access log (`/opt/traefik/logs
 
 Admin (HTTP Basic via `ADMIN_USER`/`ADMIN_PASSWORD`):
 
-- `GET  /admin` → redirects to `/admin/invoices`.
+- `GET  /admin` → dashboard (`views/admin/dashboard.erb`): invoice counts/outstanding/overdue + recent five, bingo score/reserve/latest incident/missing photos. Shared admin nav in `views/admin/_nav.erb`.
 - `GET  /admin/invoices` — list, newest first.
 - `GET  /admin/invoices/new` — create form. Dynamic line items via `public/admin-invoice-form.js`.
 - `POST /admin/invoices` — validate → allocate number → render PDF → upload to MinIO → persist row.

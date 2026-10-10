@@ -1,0 +1,5 @@
+<nav class="admin-nav">
+    <% [['/admin', 'dashboard'], ['/admin/invoices', 'invoices'], ['/admin/bingo', 'bingo']].each do |href, label| %>
+        <a href="<%= href %>" class="<%= 'active' if href == '/admin' ? request.path == '/admin' : request.path.start_with?(href) %>"><%= label %></a>
+    <% end %>
+</nav>

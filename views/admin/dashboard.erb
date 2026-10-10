@@ -1,0 +1,49 @@
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1>Dashboard</h1>
+</div>
+
+<div class="dash">
+    <section class="section dash-tile">
+        <h2><a href="/admin/invoices">Invoices</a></h2>
+        <div class="stats">
+            <div><b><%= @inv[:count] %></b><span>total</span></div>
+            <div><b><%= @inv[:unpaid].size %></b><span>unpaid</span></div>
+            <div><b><%= @inv[:overdue] %></b><span>overdue</span></div>
+        </div>
+        <% if @inv[:unpaid_totals].any? %>
+            <p class="optional">Outstanding: <span class="mono"><%= @inv[:unpaid_totals].map { |cur, sum| "#{cur} #{'%.2f' % sum}" }.join(' · ') %></span></p>
+        <% end %>
+        <% if @inv[:recent].any? %>
+            <table class="invoice-list">
+                <tbody>
+                    <% @inv[:recent].each do |inv| %>
+                        <tr>
+                            <td class="mono"><a href="/admin/invoices/<%= inv.uuid %>"><%= inv.number %></a></td>
+                            <td><%= inv.client_name %></td>
+                            <td class="num mono"><%= inv.currency %> <%= '%.2f' % inv.total %></td>
+                            <td><span class="badge badge-<%= inv.status %>"><%= inv.status %></span></td>
+                        </tr>
+                    <% end %>
+                </tbody>
+            </table>
+        <% end %>
+        <p><a href="/admin/invoices/new">+ New invoice</a> · <a href="/admin/invoices">all invoices</a></p>
+    </section>
+
+    <section class="section dash-tile">
+        <h2><a href="/admin/bingo">Bingo</a></h2>
+        <div class="stats">
+            <div><b><%= @bingo[:hit] %>/<%= @bingo[:cells] %></b><span>crossed out</span></div>
+            <div><b><%= @bingo[:lines] %></b><span>lines</span></div>
+            <div><b><%= @bingo[:reserve] %></b><span>in reserve</span></div>
+        </div>
+        <% if (last = @bingo[:last_incident]) %>
+            <p>Latest: <span class="mono"><%= last.occurred_on %></span> <%= Bingo::ICONS[last.kind] %> <%= last.datacenter.name_ru %> — <%= last.title_ru %></p>
+        <% end %>
+        <% if @bingo[:no_photo].any? %>
+            <p class="optional">No photo on the card: <%= @bingo[:no_photo].map(&:name_ru).join(', ') %></p>
+        <% end %>
+        <p><a href="/admin/bingo">manage</a><% if bingo_public_url %> · <a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %></p>
+    </section>
+</div>
