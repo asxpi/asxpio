@@ -42,9 +42,16 @@
             <div class="field"><label for="operator">Operator</label><input type="text" id="operator" name="operator" value="<%= @dc.operator %>" required /></div>
             <div class="field"><label for="mw">MW <span class="optional">(number or range)</span></label><input type="text" id="mw" name="mw" value="<%= @dc.mw %>" /></div>
             <div class="field">
+                <label for="mw_type">Capacity type</label>
+                <select id="mw_type" name="mw_type">
+                    <option value="" <%= 'selected' unless @dc.mw_type %>>not stated</option>
+                    <% Bingo::MW_TYPES.each do |m| %><option value="<%= m %>" <%= 'selected' if @dc.mw_type == m %>><%= m %></option><% end %>
+                </select>
+            </div>
+            <div class="field">
                 <label for="status">Status</label>
                 <select id="status" name="status">
-                    <% %w[operational building].each do |s| %><option <%= 'selected' if @dc.status == s %>><%= s %></option><% end %>
+                    <% Bingo::STATUSES.each do |s| %><option <%= 'selected' if @dc.status == s %>><%= s %></option><% end %>
                 </select>
             </div>
             <div class="field"><label for="year">Year</label><input type="text" id="year" name="year" value="<%= @dc.year %>" inputmode="numeric" /></div>

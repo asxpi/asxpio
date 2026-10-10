@@ -144,6 +144,30 @@ class BingoTest < Minitest::Test
     assert_includes last_response.body, 'index, follow, max-image-preview'
   end
 
+  def test_capacity_type_and_planned_status
+    @dcs[0].update(mw: '64', mw_type: 'design', status: 'planned')
+    @dcs[1].update(mw: '17', mw_type: 'mva')
+    get '/en'
+    body = last_response.body
+    assert_includes body, '64 MW · design'           # dialog
+    assert_includes body, '#1 · 64 MW</div>'         # cell: no tag
+    assert_includes body, '17 MVA'
+    assert_includes body, '#2 · 17 MVA</div>'       # MVA replaces the unit in cells too
+    assert_includes body, '>planned<'
+    refute_includes Bingo::Board.load('operational').cells.map(&:slug), 'dc-1'
+  end
+
+  def test_admin_saves_capacity_type_and_planned
+    @app = AsxpioWeb
+    token = admin_token("/admin/bingo/dc/#{@dcs[0].id}")
+    post "/admin/bingo/dc/#{@dcs[0].id}", dc_params(authenticity_token: token, name_ru: 'ЦОД 1', status: 'planned', mw_type: 'connected'), admin_env
+    @dcs[0].refresh
+    assert @dcs[0].planned?
+    assert_equal 'connected', @dcs[0].mw_type
+    post "/admin/bingo/dc/#{@dcs[0].id}", dc_params(authenticity_token: token, name_ru: 'ЦОД 1', mw_type: 'bogus'), admin_env
+    assert_nil @dcs[0].refresh.mw_type
+  end
+
   def test_robots_and_sitemap_are_the_bingos_own
     get '/robots.txt'
     assert last_response.ok?

@@ -3,7 +3,7 @@ require 'uri'
 # /admin/bingo/* on asxp.io: edit the card and record incidents for BingoWeb.
 # Registered into AsxpioWeb, so AdminAuth (HTTP Basic) and CSRF apply.
 module BingoAdmin
-  DC_TEXT = %w[name_ru name_en name_uk city_ru city_en city_uk operator mw status
+  DC_TEXT = %w[name_ru name_en name_uk city_ru city_en city_uk operator mw mw_type status
                photo_credit photo_source_url info_url].freeze
 
   module Helpers
@@ -23,7 +23,8 @@ module BingoAdmin
     def assign_dc(dc)
       DC_TEXT.each { |f| dc[f.to_sym] = blank_nil(params[f]) }
       dc.year   = params[:year].to_s =~ /\A\d{4}\z/ ? params[:year].to_i : nil
-      dc.status = 'operational' unless %w[operational building].include?(dc.status)
+      dc.status  = 'operational' unless Bingo::STATUSES.include?(dc.status)
+      dc.mw_type = nil unless Bingo::MW_TYPES.include?(dc.mw_type)
       errs = []
       errs << 'Name (ru), city (ru) and operator are required' if [dc.name_ru, dc.city_ru, dc.operator].any?(&:nil?)
       errs << 'URLs must be http(s)' unless [dc.photo_source_url, dc.info_url].all? { |u| http_url?(u.to_s) }

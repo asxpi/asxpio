@@ -12,6 +12,8 @@ module Bingo
   KINDS   = %w[strike fire outage flood cooling other].freeze
   ICONS   = { 'strike' => '💥', 'fire' => '🔥', 'outage' => '⚡', 'flood' => '💧', 'cooling' => '🌡️', 'other' => '⚠️' }.freeze
   SIZE    = 5
+  STATUSES = %w[operational building planned].freeze
+  MW_TYPES = %w[it connected total design mva].freeze
 
   # Every row, column and both diagonals, as 0-based cell indices.
   LINES = (
@@ -30,6 +32,8 @@ module Bingo
       crossed: 'Зачёркнуто', lines: 'линий', updated: 'обновлено',
       log: 'Журнал инцидентов', empty: 'Пока всё работает. Пока.',
       bingo: 'БИНГО!', bingo_n: 'БИНГО ×%d!', full: 'ПОЛНАЯ КАРТА. Интернета больше нет.',
+      planned: 'планируется', mva: 'МВА',
+      mw_types: { 'it' => 'ИТ', 'connected' => 'подв.', 'total' => 'общ.', 'design' => 'проект' },
       building: 'строится', mw: 'МВт', since: 'с %d г.', photo: 'Фото', source: 'Источник',
       close: 'Закрыть', no_incidents: 'Инцидентов не зафиксировано.',
       footer: 'Данные из открытых источников (2025–2026). Клетка зачёркивается только по публичному источнику.',
@@ -46,6 +50,8 @@ module Bingo
       crossed: 'Crossed out', lines: 'lines', updated: 'updated',
       log: 'Incident log', empty: 'Everything is up. For now.',
       bingo: 'BINGO!', bingo_n: 'BINGO ×%d!', full: 'FULL CARD. There is no more internet.',
+      planned: 'planned', mva: 'MVA',
+      mw_types: { 'it' => 'IT', 'connected' => 'connected', 'total' => 'total', 'design' => 'design' },
       building: 'under construction', mw: 'MW', since: 'since %d', photo: 'Photo', source: 'Source',
       close: 'Close', no_incidents: 'No incidents recorded.',
       footer: 'Open-source data (2025–2026). A cell is crossed out only with a public source.',
@@ -62,6 +68,8 @@ module Bingo
       crossed: 'Закреслено', lines: 'ліній', updated: 'оновлено',
       log: 'Журнал інцидентів', empty: 'Поки що все працює. Поки що.',
       bingo: 'БІНГО!', bingo_n: 'БІНГО ×%d!', full: 'ПОВНА КАРТКА. Інтернету більше немає.',
+      planned: 'планується', mva: 'МВА',
+      mw_types: { 'it' => 'ІТ', 'connected' => 'підв.', 'total' => 'заг.', 'design' => 'проєкт' },
       building: 'будується', mw: 'МВт', since: 'з %d р.', photo: 'Фото', source: 'Джерело',
       close: 'Закрити', no_incidents: 'Інцидентів не зафіксовано.',
       footer: 'Дані з відкритих джерел (2025–2026). Клітинка закреслюється лише за публічним джерелом.',
@@ -87,6 +95,9 @@ module Bingo
       self.created_at ||= Time.now.utc
       super
     end
+
+    def operational? = status == 'operational'
+    def planned?     = status == 'planned'
 
     def building?
       status == 'building'

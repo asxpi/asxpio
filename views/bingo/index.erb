@@ -38,8 +38,8 @@
               aria-label="<%= dc.l(:name, @locale) %><%= " — #{kind_label(dc.incidents.first.kind)}" if b.hit[idx] %>">
         <% if photo %><img class="bg" src="<%= photo %>" alt="" width="480" height="480" decoding="async"<%== ' loading="lazy"' if idx >= 10 %>><% end %>
         <div>
-          <div class="n">#<%= idx + 1 %><%= " · #{mw(dc)}" if mw(dc) %></div>
-          <% if dc.building? %><div class="tag"><%= t(:building) %></div><% end %>
+          <div class="n">#<%= idx + 1 %><%= " · #{mw(dc, tag: false)}" if mw(dc) %></div>
+          <% if status_label(dc) %><div class="tag"><%= status_label(dc) %></div><% end %>
         </div>
         <div>
           <div class="name"><%= dc.l(:name, @locale) %></div>
@@ -81,7 +81,7 @@
     <div class="body">
       <h3><%= dc.l(:name, @locale) %></h3>
       <div class="meta">
-        <%= [dc.operator, mw(dc), dc.l(:city, @locale), dc.building? ? t(:building) : (dc.year && format(t(:since), dc.year))].compact.join(' · ') %>
+        <%= [dc.operator, mw(dc), dc.l(:city, @locale), status_label(dc) || (dc.year && format(t(:since), dc.year))].compact.join(' · ') %>
       </div>
       <% if dc.photo_credit || dc.info_url %>
         <div class="credit">

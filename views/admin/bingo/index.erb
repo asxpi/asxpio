@@ -97,7 +97,7 @@
                     <td><% if dc.photo_file %><img src="/admin/bingo/p/<%= dc.photo_file(480) %>" alt="" width="64" height="40" style="object-fit: cover" /><% else %>—<% end %></td>
                     <td><%= dc.name_ru %><br /><span class="optional"><%= dc.city_ru %></span></td>
                     <td><%= dc.operator %></td>
-                    <td class="num mono"><%= dc.mw %></td>
+                    <td class="num mono"><%= dc.mw %><%= " #{dc.mw_type}" if dc.mw_type %></td>
                     <td><%= dc.status %></td>
                     <td class="num mono"><%= dc.incidents.size %></td>
                     <td class="actions"><a href="/admin/bingo/dc/<%= dc.id %>">edit</a></td>

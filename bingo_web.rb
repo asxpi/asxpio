@@ -57,8 +57,17 @@ class BingoWeb < Sinatra::Base
     end
     def fmt_date(d) = d.strftime('%d.%m.%Y')
 
-    def mw(dc)
-      dc.mw.to_s.strip.empty? ? nil : "#{dc.mw} #{t(:mw)}"
+    # "64 MW", "64 MW · design", "17 MVA" (MVA is a unit, not a tag).
+    def mw(dc, tag: true)
+      return if dc.mw.to_s.strip.empty?
+      return "#{dc.mw} #{t(:mva)}" if dc.mw_type == 'mva'
+      tag &&= t(:mw_types)[dc.mw_type]
+      ["#{dc.mw} #{t(:mw)}", tag || nil].compact.join(' · ')
+    end
+
+    # Badge for anything not yet in service.
+    def status_label(dc)
+      { 'building' => t(:building), 'planned' => t(:planned) }[dc.status]
     end
 
     def preferred_locale
