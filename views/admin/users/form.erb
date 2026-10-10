@@ -14,7 +14,13 @@
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <fieldset class="plain" <%= 'disabled' unless editable %>>
         <div class="invoice-grid">
-            <div class="field"><label for="username">Username<% if fresh %> <span class="optional">(optional)</span><% end %></label><input type="text" id="username" name="username" value="<%= @user.username %>" <%= fresh ? 'pattern=[a-z0-9][a-z0-9_.@-]{1,63} placeholder="leave empty: invitee chooses"' : (current_user.superuser ? 'required pattern=[a-z0-9][a-z0-9_.@-]{1,63}' : 'disabled') %> /></div>
+            <div class="field"><label for="username">Username<% if fresh %> <span class="optional">(optional)</span><% end %></label><% if fresh %>
+                <input type="text" id="username" name="username" value="<%= @user.username %>" pattern="[a-z0-9][a-z0-9_.@-]{1,63}" placeholder="empty: the invitee picks one" autocapitalize="none" />
+                <% elsif current_user.superuser %>
+                <input type="text" id="username" name="username" value="<%= @user.username %>" pattern="[a-z0-9][a-z0-9_.@-]{1,63}" required autocapitalize="none" />
+                <% else %>
+                <input type="text" id="username" name="username" value="<%= @user.username %>" disabled />
+                <% end %></div>
             <div class="field"><label for="name">Name <span class="optional">(optional)</span></label><input type="text" id="name" name="name" value="<%= @user.name %>" /></div>
             <div class="field"><label for="email">Email <span class="optional">(for invite and password reset)</span></label><input type="email" id="email" name="email" value="<%= @user.email %>" /></div>
         </div>

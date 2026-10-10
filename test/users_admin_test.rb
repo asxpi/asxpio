@@ -49,6 +49,9 @@ class UsersAdminTest < Minitest::Test
 
   def test_invite_without_username_lets_invitee_choose
     admin_login!
+    get '/admin/users/new'
+    assert_includes last_response.body, 'placeholder="empty: the invitee picks one"' # not HTML-escaped into the attribute
+    refute_includes last_response.body, '&quot;'
     create_user(username: '', perm: { 'bingo' => { 'read' => '1' } })
     u = User.where(choose_username: true).first
     assert_match(/\Ainvite-[0-9a-f]{8}\z/, u.username)
