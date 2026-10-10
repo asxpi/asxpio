@@ -117,7 +117,7 @@ Admin pages use a shared dark palette extended in `public/style.css` (search for
 
 ## Datacenter bingo
 
-A second public site served from the **same process** on `BINGO_HOST` (`datacenterbingo.xyz`, `www.` redirects to it; `BINGO_ALT_HOST=bingo.asxp.io` serves the same card; non-secret config in `deploy.yaml` → `.env` → Traefik router `asxpio-bingo` via compose interpolation). `config.ru` dispatches by Host: `BINGO_HOST` → `BingoWeb` (`bingo_web.rb`), everything else → `AsxpioWeb`. Unset `BINGO_HOST` = bingo unreachable.
+A second public site served from the **same process** on `BINGO_HOST` (`datacenterbingo.xyz`, `www.` redirects to it; optional `BINGO_ALT_HOST` serves the same card on a second hostname (unused; it also needs adding to the Traefik rule); non-secret config in `deploy.yaml` → `.env` → Traefik router `asxpio-bingo` via compose interpolation). `config.ru` dispatches by Host: `BINGO_HOST` → `BingoWeb` (`bingo_web.rb`), everything else → `AsxpioWeb`. Unset `BINGO_HOST` = bingo unreachable.
 
 - 5×5 card of the 25 largest Russian datacenters; a cell is crossed out when an incident (with a public source) is recorded. Rows/columns/diagonals → BINGO banner.
 - Locales `ru` / `en` / `uk` at `/ru`, `/en`, `/uk`; `/` redirects by `Accept-Language` (fallback `en`). Per-locale DB columns (`name_*`, `city_*`, `title_*`); `ru` is required, others fall back to it. UI strings in `Bingo::T` (`lib/bingo.rb`).
