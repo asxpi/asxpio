@@ -12,7 +12,7 @@
 <% end %>
 
 <section class="section">
-    <form class="contact-form invoice-form" method="post" action="/admin/invoices" autocomplete="off">
+    <form class="invoice-form" method="post" action="/admin/invoices" autocomplete="off">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
 
         <h2>Client</h2>
@@ -117,7 +117,7 @@
         </div>
         <script type="application/json" id="crypto-defaults"><%== CryptoAsset.default_addresses.to_json %></script>
 
-        <button type="submit">Create invoice</button>
+        <button type="submit" class="download-button">Create invoice</button>
     </form>
 </section>
 
