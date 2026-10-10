@@ -15,6 +15,21 @@ module BingoAdmin
       s.empty? || s.match?(URI::DEFAULT_PARSER.make_regexp(%w[http https]))
     end
 
+    def position_param
+      params[:position].to_s =~ /\A\d+\z/ ? params[:position].to_i : nil
+    end
+
+    # Copies the edit form onto dc (position is handled by Bingo.place!).
+    def assign_dc(dc)
+      DC_TEXT.each { |f| dc[f.to_sym] = blank_nil(params[f]) }
+      dc.year   = params[:year].to_s =~ /\A\d{4}\z/ ? params[:year].to_i : nil
+      dc.status = 'operational' unless %w[operational building].include?(dc.status)
+      errs = []
+      errs << 'Name (ru), city (ru) and operator are required' if [dc.name_ru, dc.city_ru, dc.operator].any?(&:nil?)
+      errs << 'URLs must be http(s)' unless [dc.photo_source_url, dc.info_url].all? { |u| http_url?(u.to_s) }
+      errs
+    end
+
     def blank_nil(s)
       s = s.to_s.strip
       s.empty? ? nil : s
@@ -33,6 +48,33 @@ module BingoAdmin
       erb :'admin/bingo/index'
     end
 
+    app.get '/admin/bingo/dc/new' do
+      @dc = Bingo::Datacenter.new(status: 'operational')
+      @page_title = 'New datacenter · bingo admin'
+      @noindex    = true
+      erb :'admin/bingo/edit'
+    end
+
+    app.post '/admin/bingo/dc' do
+      @dc = Bingo::Datacenter.new
+      @dc.slug = params[:slug].to_s.strip.downcase
+      errs = assign_dc(@dc)
+      errs.unshift('Slug: lowercase letters, digits and dashes') unless @dc.slug.match?(/\A[a-z0-9]+(-[a-z0-9]+)*\z/)
+      errs.unshift('Slug already taken') if Bingo::Datacenter.where(slug: @dc.slug).any?
+      if errs.any?
+        @flash = errs.join('; ')
+        @page_title = 'New datacenter · bingo admin'
+        @noindex    = true
+        status 422
+        return erb :'admin/bingo/edit'
+      end
+      @dc.position = Bingo::Datacenter.count + 1
+      @dc.save
+      Bingo.place!(@dc, position_param)
+      session[:bingo_flash] = "Added #{@dc.name_ru} at ##{@dc.refresh.position}."
+      redirect "/admin/bingo/dc/#{@dc.id}"
+    end
+
     app.get '/admin/bingo/dc/:id' do
       @dc = Bingo::Datacenter[params[:id].to_i] or halt 404
       @page_title = "#{@dc.name_ru} · bingo admin"
@@ -43,20 +85,34 @@ module BingoAdmin
 
     app.post '/admin/bingo/dc/:id' do
       dc = Bingo::Datacenter[params[:id].to_i] or halt 404
-      DC_TEXT.each { |f| dc[f.to_sym] = blank_nil(params[f]) }
-      dc.position = params[:position].to_i if params[:position].to_s =~ /\A\d+\z/
-      dc.year     = params[:year].to_s =~ /\A\d{4}\z/ ? params[:year].to_i : nil
-      dc.status   = 'operational' unless %w[operational building].include?(dc.status)
-      errs = []
-      errs << 'Name (ru), city (ru) and operator are required' if [dc.name_ru, dc.city_ru, dc.operator].any?(&:nil?)
-      errs << 'URLs must be http(s)' unless [dc.photo_source_url, dc.info_url].all? { |u| http_url?(u.to_s) }
+      errs = assign_dc(dc)
       if errs.empty?
         dc.save_changes
+        Bingo.place!(dc, position_param) if position_param && position_param != dc.position
         session[:bingo_flash] = 'Saved.'
       else
         session[:bingo_flash] = errs.join('; ')
       end
       redirect "/admin/bingo/dc/#{dc.id}"
+    end
+
+    # Deletes the row and (FK cascade) its incidents; the photo object stays
+    # in the bucket.
+    app.post '/admin/bingo/dc/:id/delete' do
+      dc = Bingo::Datacenter[params[:id].to_i] or halt 404
+      n  = dc.incidents.size
+      DB.connection.transaction do
+        dc.destroy
+        Bingo.renumber!
+      end
+      session[:bingo_flash] = "Deleted #{dc.name_ru}#{" and #{n} incident(s)" if n.positive?}."
+      redirect '/admin/bingo'
+    end
+
+    app.post '/admin/bingo/sort' do
+      Bingo.sort_by_mw!
+      session[:bingo_flash] = 'Sorted by MW (unknown last).'
+      redirect '/admin/bingo'
     end
 
     # Either an uploaded file or "import from URL" (defaults to photo_source_url).

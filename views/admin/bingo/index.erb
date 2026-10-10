@@ -67,6 +67,11 @@
 
 <section class="section">
     <h2>Card</h2>
+    <p><a href="/admin/bingo/dc/new">+ Add datacenter</a> · positions 1–<%= Bingo::SIZE**2 %> are on the card, the rest are reserve</p>
+    <form method="post" action="/admin/bingo/sort" onsubmit="return confirm('Re-rank every datacenter by MW? Manual ordering is lost.')">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <button type="submit" class="link-button">⇅ Sort by MW (unknown last)</button>
+    </form>
     <form method="post" action="/admin/bingo/photos/import">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
         <button type="submit" class="link-button">↻ Import all missing photos from their source URLs</button>
@@ -80,6 +85,9 @@
         <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Operator</th><th class="num">MW</th><th>Status</th><th class="num">Incidents</th><th></th></tr></thead>
         <tbody>
             <% @dcs.each do |dc| %>
+                <% if dc.position == Bingo::SIZE**2 + 1 %>
+                    <tr><td colspan="8" class="optional">— reserve (not on the card) —</td></tr>
+                <% end %>
                 <tr>
                     <td class="mono"><%= dc.position %></td>
                     <td><% if dc.photo_file %><img src="/admin/bingo/p/<%= dc.photo_file %>" alt="" width="64" height="40" style="object-fit: cover" /><% else %>—<% end %></td>

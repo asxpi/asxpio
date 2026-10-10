@@ -46,6 +46,7 @@ class BingoTest < Minitest::Test
     assert_includes last_response.body, 'Moscow'
     get '/uk'
     assert_includes last_response.body, 'Бінго'
+    assert_includes last_response.body, '<a href="https://asxp.io">asxp.io</a>'
     get '/xx'
     assert_equal 404, last_response.status
   end
@@ -160,6 +161,79 @@ class BingoTest < Minitest::Test
     assert_equal 'Нове', @dcs[0].name_uk
     assert @dcs[0].building?
     assert_equal 2027, @dcs[0].year
+  end
+
+  def admin_token(path = '/admin/bingo')
+    get path, {}, admin_env
+    last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+  end
+
+  def dc_params(extra = {})
+    { name_ru: 'IXcellerate MOS7', city_ru: 'Москва', operator: 'IXcellerate', mw: '34', status: 'building' }.merge(extra)
+  end
+
+  def test_mw_value
+    assert_equal 64.0, Bingo.mw_value('64')
+    assert_equal 30.0, Bingo.mw_value('25–30')
+    assert_equal 13.7, Bingo.mw_value('13,7')
+    assert_equal 40.0, Bingo.mw_value('>40')
+    assert_nil Bingo.mw_value('')
+  end
+
+  def test_admin_adds_datacenter_at_position
+    @app = AsxpioWeb
+    token = admin_token('/admin/bingo/dc/new')
+    post '/admin/bingo/dc', dc_params(authenticity_token: token, slug: 'ix-mos7', position: '9'), admin_env
+    assert_equal 302, last_response.status, last_response.body
+    mos7 = Bingo::Datacenter[slug: 'ix-mos7']
+    assert_equal 9, mos7.position
+    assert_equal 10, @dcs[8].refresh.position          # old #9 shifted down
+    assert_equal 26, @dcs[24].refresh.position         # old #25 now in reserve
+    assert_equal (1..26).to_a, Bingo::Datacenter.order(:position).select_map(:position)
+
+    board = Bingo::Board.load
+    assert_equal 25, board.cells.size
+    refute_includes board.cells.map(&:slug), 'dc-25'
+    assert_includes board.cells.map(&:slug), 'ix-mos7'
+  end
+
+  def test_admin_rejects_bad_or_duplicate_slug
+    @app = AsxpioWeb
+    token = admin_token('/admin/bingo/dc/new')
+    post '/admin/bingo/dc', dc_params(authenticity_token: token, slug: 'Bad Slug'), admin_env
+    assert_equal 422, last_response.status
+    post '/admin/bingo/dc', dc_params(authenticity_token: token, slug: 'dc-1'), admin_env
+    assert_equal 422, last_response.status
+    assert_equal 25, Bingo::Datacenter.count
+  end
+
+  def test_admin_moves_datacenter
+    @app = AsxpioWeb
+    token = admin_token("/admin/bingo/dc/#{@dcs[24].id}")
+    post "/admin/bingo/dc/#{@dcs[24].id}", dc_params(authenticity_token: token, name_ru: 'ЦОД 25', position: '1'), admin_env
+    assert_equal 1, @dcs[24].refresh.position
+    assert_equal 2, @dcs[0].refresh.position
+    assert_equal (1..25).to_a, Bingo::Datacenter.order(:position).select_map(:position)
+  end
+
+  def test_admin_deletes_datacenter_with_incidents
+    @app = AsxpioWeb
+    hit!(4)
+    token = admin_token("/admin/bingo/dc/#{@dcs[4].id}")
+    post "/admin/bingo/dc/#{@dcs[4].id}/delete", { authenticity_token: token }, admin_env
+    assert_equal 302, last_response.status
+    assert_nil Bingo::Datacenter[@dcs[4].id]
+    assert_equal 0, Bingo::Incident.count
+    assert_equal (1..24).to_a, Bingo::Datacenter.order(:position).select_map(:position)
+  end
+
+  def test_sort_by_mw
+    @dcs[0].update(mw: '')    # unknown → last
+    @dcs[1].update(mw: '25–30')
+    Bingo.sort_by_mw!
+    order = Bingo::Datacenter.order(:position).select_map(:slug)
+    assert_equal %w[dc-2 dc-25 dc-24], order.first(3) # "25–30" ranks as 30
+    assert_equal 'dc-1', order.last
   end
 
   def test_upload_photo_via_admin

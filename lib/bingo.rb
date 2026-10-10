@@ -238,6 +238,34 @@ module Bingo
     end
   end
 
+  # Positions stay dense 1..N; the card shows the first SIZE*SIZE, the rest
+  # wait in reserve. Placing a datacenter inserts it at pos (default: last)
+  # and shifts everyone after it.
+  def self.place!(dc, pos = nil)
+    DB.connection.transaction do
+      ids = Datacenter.exclude(id: dc.id).order(:position, :id).select_map(:id)
+      pos = (pos || ids.size + 1).clamp(1, ids.size + 1)
+      renumber!(ids.insert(pos - 1, dc.id))
+    end
+  end
+
+  def self.renumber!(ids = Datacenter.order(:position, :id).select_map(:id))
+    ids.each_with_index { |id, i| Datacenter.where(id: id).update(position: i + 1) }
+  end
+
+  # "64" → 64.0, "25–30" → 30.0, ">40" → 40.0, "13,7" → 13.7, "" → nil
+  def self.mw_value(mw)
+    mw.to_s.tr(',', '.').scan(/\d+(?:\.\d+)?/).map(&:to_f).max
+  end
+
+  # Rank by power, unknown last; ties keep their current order.
+  def self.sort_by_mw!
+    DB.connection.transaction do
+      renumber!(Datacenter.order(:position, :id).all
+                          .sort_by.with_index { |dc, i| [-(mw_value(dc.mw) || -1), i] }.map(&:id))
+    end
+  end
+
   # First boot: fill the card (and any already-known incidents) from
   # db/bingo_seed.json. Never touches rows once any exist; edits happen in
   # /admin/bingo.
