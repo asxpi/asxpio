@@ -2,7 +2,6 @@ require 'net/http'
 require 'json'
 require 'uri'
 require 'bigdecimal'
-require_relative 'crypto_asset'
 
 # Fetches the current price of a CryptoAsset from CoinGecko (free, no API key).
 #
@@ -17,11 +16,11 @@ module CryptoRate
 
   module_function
 
-  # Returns a BigDecimal: the price of 1 unit of `coin` in `currency`.
+  # Returns a BigDecimal: the price of 1 unit of the CoinGecko asset `id`
+  # (a payout address's coingecko field) in `currency`.
   # `gel_rate` (USD->GEL) is required only when currency == 'GEL'.
-  def fetch(coin, currency, gel_rate: nil)
-    asset = CryptoAsset[coin] or raise Error, "Unknown coin: #{coin}"
-    id = asset[:coingecko]
+  def fetch(id, currency, gel_rate: nil)
+    raise Error, 'No CoinGecko id set for this payout address; enter the rate by hand.' if id.to_s.empty?
     currency = currency.to_s.upcase
 
     if currency == 'GEL'

@@ -43,29 +43,30 @@ class CryptoAssetTest < Minitest::Test
 end
 
 class CryptoQrTest < Minitest::Test
+  def uri(scheme, amount_param, address, amount)
+    CryptoQr.uri(scheme: scheme, amount_param: amount_param, address: address, amount: amount)
+  end
+
   def test_bip21_uri_with_amount
-    assert_equal 'bitcoin:bc1qaddr?amount=0.005',
-                 CryptoQr.uri('BTC', 'bc1qaddr', BigDecimal('0.00500000'))
-    assert_equal 'litecoin:ltc1qaddr?amount=1.25',
-                 CryptoQr.uri('LTC', 'ltc1qaddr', BigDecimal('1.25'))
+    assert_equal 'bitcoin:bc1qaddr?amount=0.005', uri('bitcoin', 'amount', 'bc1qaddr', BigDecimal('0.00500000'))
+    assert_equal 'litecoin:ltc1qaddr?amount=1.25', uri('litecoin', 'amount', 'ltc1qaddr', BigDecimal('1.25'))
   end
 
   def test_monero_uses_tx_amount
-    assert_equal 'monero:4Aaddr?tx_amount=2.5',
-                 CryptoQr.uri('XMR', '4Aaddr', BigDecimal('2.5'))
+    assert_equal 'monero:4Aaddr?tx_amount=2.5', uri('monero', 'tx_amount', '4Aaddr', BigDecimal('2.5'))
   end
 
-  def test_eth_scheme_without_amount
-    assert_equal 'ethereum:0xAddr', CryptoQr.uri('ETH', '0xAddr', BigDecimal('1.5'))
+  def test_scheme_without_amount_param
+    assert_equal 'ethereum:0xAddr', uri('ethereum', nil, '0xAddr', BigDecimal('1.5'))
   end
 
-  def test_tokens_encode_bare_address
-    assert_equal 'TAddr', CryptoQr.uri('USDT-TRC20', 'TAddr', BigDecimal('100'))
-    assert_equal 'AAddr', CryptoQr.uri('USDC-ALGO', 'AAddr', nil)
+  def test_no_scheme_encodes_bare_address
+    assert_equal 'TAddr', uri(nil, nil, 'TAddr', BigDecimal('100'))
+    assert_equal 'AAddr', uri(nil, nil, 'AAddr', nil)
   end
 
   def test_png_renders
-    png = CryptoQr.png('BTC', 'bc1qexampleexampleexample', BigDecimal('0.01'))
+    png = CryptoQr.png(scheme: 'bitcoin', amount_param: 'amount', address: 'bc1qexampleexampleexample', amount: BigDecimal('0.01'))
     assert png.start_with?("\x89PNG".b)
   end
 end

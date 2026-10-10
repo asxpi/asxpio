@@ -71,14 +71,32 @@ class InvoiceTest < Minitest::Test
     assert_equal BigDecimal('1.25'), inv.crypto_amount_due
   end
 
-  def test_build_rejects_unknown_coin
+  def test_build_fills_known_ticker_from_template
+    inv = Invoice.build(
+      client_name: 'ACME', client_email: 'billing@example.com', currency: 'EUR', gel_rate: '3.05',
+      items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }],
+      crypto_coin: 'ltc', crypto_address: 'ltc1qexampleexampleexampleexample'
+    )
+    assert_equal ['Litecoin', 'litecoin', 'amount'], [inv.crypto_name, inv.crypto_scheme, inv.crypto_amount_param]
+  end
+
+  # Any ticker works once a payout address defines it; the invoice keeps
+  # its own copy of the QR metadata.
+  def test_build_takes_snapshot_for_custom_coin
+    inv = Invoice.build(
+      client_name: 'ACME', client_email: 'billing@example.com', currency: 'EUR', gel_rate: '3.05',
+      items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }],
+      crypto_coin: 'DOGE', crypto_address: 'D6examplexampleexampleexample',
+      crypto_name: 'Dogecoin', crypto_scheme: 'dogecoin', crypto_amount_param: 'amount'
+    )
+    assert_equal ['DOGE', 'Dogecoin', 'dogecoin'], [inv.crypto_coin, inv.crypto_name, inv.crypto_scheme]
+  end
+
+  def test_build_rejects_malformed_ticker
     assert_raises(ArgumentError) do
-      Invoice.build(
-        client_name: 'ACME', client_email: 'billing@example.com',
-        currency: 'EUR', gel_rate: '3.05',
-        items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }],
-        crypto_coin: 'DOGE', crypto_address: 'D6examplexampleexampleexample'
-      )
+      Invoice.build(client_name: 'A', client_email: 'a@example.com', currency: 'EUR', gel_rate: '3',
+                    items: [{ 'description' => 'w', 'qty' => '1', 'unit_price' => '1' }],
+                    crypto_coin: 'bad coin', crypto_address: 'D6examplexampleexampleexample')
     end
   end
 end
@@ -86,7 +104,7 @@ end
 class InvoiceValidationTest < Minitest::Test
   BASE = {
     client_name: 'ACME', client_email: 'billing@example.com', currency: 'EUR',
-    gel_rate: '3.05', crypto_coin: 'LTC', crypto_address: '', crypto_rate: '', crypto_amount: '',
+    gel_rate: '3.05', payout_id: '', crypto_rate: '', crypto_amount: '',
     items: [{ 'description' => 'work', 'qty' => '1', 'unit_price' => '100' }]
   }.freeze
 
@@ -122,17 +140,21 @@ class InvoiceValidationTest < Minitest::Test
     assert_includes validate(items: [{ 'description' => '', 'qty' => '1', 'unit_price' => '1' }]), :items
   end
 
-  def test_crypto_address_format
-    assert_includes validate(crypto_address: 'not!an@address'), :crypto_address
+  def test_unknown_or_inactive_payout_rejected
+    assert_includes validate(payout_id: '999999'), :payout_id
+    p = PayoutAddress.create(coin: 'LTC', name: 'Litecoin', address: 'ltc1qvalidvalidvalidvalid', active: false,
+                             updated_by: 't', updated_at: Time.now.utc)
+    assert_includes validate(payout_id: p.id.to_s), :payout_id
+    p.update(active: true)
+    assert_empty validate(payout_id: p.id.to_s)
+  ensure
+    p&.destroy
   end
 
-  def test_crypto_unknown_coin_rejected
-    v = validate(crypto_coin: 'DOGE', crypto_address: 'D6exampleexampleexampleexample')
-    assert_includes v, :crypto_coin
-  end
-
-  def test_crypto_valid_asset_passes
-    v = validate(crypto_coin: 'USDT-TRC20', crypto_address: 'TXYZexampleexampleexampleexample12')
-    assert_empty v
+  def test_crypto_rate_must_be_positive
+    p = PayoutAddress.create(coin: 'LTC', name: 'Litecoin', address: 'ltc1qvalidvalidvalidvalid', updated_by: 't', updated_at: Time.now.utc)
+    assert_includes validate(payout_id: p.id.to_s, crypto_rate: '-1'), :crypto_rate
+  ensure
+    p&.destroy
   end
 end

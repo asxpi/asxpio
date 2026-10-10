@@ -14,37 +14,76 @@ class PayoutAddressTest < Minitest::Test
     DB.connection[:payout_addresses].delete
   end
 
-  def token
-    get '/admin/invoices/payout-addresses'
+  def token(path = '/admin/invoices/payout-addresses')
+    get path
     last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+  end
+
+  def add(fields)
+    post '/admin/invoices/payout-addresses', { authenticity_token: token, payout: { 'new' => fields } }
   end
 
   def test_seed_from_env_once
     ENV['CRYPTO_ADDRESSES'] = '{"BTC":"bc1qseedseedseedseed","XYZ":"nope00000000"}'
     PayoutAddress.seed_from_env!
-    assert_equal({ 'BTC' => 'bc1qseedseedseedseed' }, PayoutAddress.map)
+    rows = PayoutAddress.all
+    assert_equal [['BTC', 'bc1qseedseedseedseed', 'Bitcoin', 'bitcoin']], rows.map { |r| [r.coin, r.address, r.name, r.scheme] }
     ENV['CRYPTO_ADDRESSES'] = '{"BTC":"bc1qotherotherother"}'
     PayoutAddress.seed_from_env!
-    assert_equal 'bc1qseedseedseedseed', PayoutAddress.map['BTC'] # not re-seeded
+    assert_equal 1, PayoutAddress.count
   ensure
     ENV.delete('CRYPTO_ADDRESSES')
   end
 
-  def test_admin_edits_validates_and_removes
+  def test_add_known_ticker_fills_from_template_and_custom_coin
     admin_login!
-    post '/admin/invoices/payout-addresses', { authenticity_token: token, address: { 'LTC' => 'ltc1qaaaaaaaaaaaaaaaa', 'BTC' => 'bad addr!' } }
-    assert_equal 302, last_response.status
-    assert_equal 'ltc1qaaaaaaaaaaaaaaaa', PayoutAddress.map['LTC']
-    assert_nil PayoutAddress.map['BTC']
+    add('coin' => 'ltc', 'address' => 'ltc1qaaaaaaaaaaaaaaaa', 'name' => 'Litecoin (Ledger)')
+    add('coin' => 'LTC', 'address' => 'ltc1qbbbbbbbbbbbbbbbb', 'name' => 'Litecoin (Exchange)')
+    add('coin' => 'DOGE', 'address' => 'DAddr1234567890', 'name' => 'Dogecoin', 'scheme' => 'dogecoin:', 'amount_param' => 'amount', 'coingecko' => 'dogecoin')
+    add('coin' => 'BTC', 'address' => 'bad addr!')
+    led = PayoutAddress[address: 'ltc1qaaaaaaaaaaaaaaaa']
+    assert_equal ['LTC', 'litecoin', 'amount', 'litecoin'], [led.coin, led.scheme, led.amount_param, led.coingecko]
+    assert_equal 2, PayoutAddress.where(coin: 'LTC').count
+    doge = PayoutAddress[coin: 'DOGE']
+    assert_equal 'dogecoin', doge.scheme                                   # colon stripped
     get '/admin/invoices/payout-addresses'
     assert_includes last_response.body, 'BTC: address looks invalid'
-    assert_includes DB.connection[:audit_log].select_map(:action), 'invoice.payout_addresses'
+    assert_includes last_response.body, 'QR → dogecoin:DAddr1234567890?amount=0.5'
 
     get '/admin/invoices/new'
-    assert_includes last_response.body, 'ltc1qaaaaaaaaaaaaaaaa'      # prefilled from DB
+    assert_includes last_response.body, 'Litecoin (Exchange) · LTC'
+    assert_includes last_response.body, 'Dogecoin · DOGE'
+  end
 
-    post '/admin/invoices/payout-addresses', { authenticity_token: token, address: { 'LTC' => '' } }
-    assert_nil PayoutAddress.map['LTC']
+  def test_edit_validate_retire_and_remove
+    admin_login!
+    add('coin' => 'LTC', 'address' => 'ltc1qaaaaaaaaaaaaaaaa')
+    row = PayoutAddress.first
+    post '/admin/invoices/payout-addresses', { authenticity_token: token,
+      payout: { row.id.to_s => { 'coin' => 'LTC', 'name' => 'Main', 'address' => row.address, 'scheme' => 'Lite Coin', 'active' => '1' } } }
+    assert_equal 'Litecoin', row.refresh.name                              # bad scheme: nothing saved
+    get '/admin/invoices/payout-addresses'
+    assert_includes last_response.body, "scheme must look like"
+
+    post '/admin/invoices/payout-addresses', { authenticity_token: token,
+      payout: { row.id.to_s => { 'coin' => 'LTC', 'name' => 'Main', 'address' => row.address, 'scheme' => 'litecoin', 'amount_param' => 'amount' } } } # active unticked
+    row.refresh
+    assert_equal 'Main', row.name
+    refute row.active
+    get '/admin/invoices/new'
+    refute_includes last_response.body, 'Main · LTC'                       # retired: not offered
+
+    post "/admin/invoices/payout-addresses/#{row.id}/delete", { authenticity_token: token }
+    assert_nil PayoutAddress[row.id]
+    assert_includes DB.connection[:audit_log].select_map(:action), 'invoice.payout_address_delete'
+  end
+
+  def test_rate_endpoint_uses_payout_coingecko_id
+    admin_login!
+    add('coin' => 'XYZ', 'address' => 'XYZaddress1234567')                # custom coin, no CoinGecko id
+    get "/admin/crypto-rate?payout=#{PayoutAddress.first.id}&currency=EUR"
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'enter the rate by hand'
   end
 
   def test_read_only_user_sees_disabled_form
@@ -53,9 +92,9 @@ class PayoutAddressTest < Minitest::Test
     admin_login!(username: 'reader', password: 'reader-password1')
     get '/admin/invoices/payout-addresses'
     assert last_response.ok?
-    assert_includes last_response.body, 'disabled'
-    refute_includes last_response.body, 'Save addresses'
-    post '/admin/invoices/payout-addresses', { authenticity_token: token, address: { 'LTC' => 'ltc1qbbbbbbbbbbbbbbbb' } }
+    refute_includes last_response.body, '>Save</button>'
+    add('coin' => 'LTC', 'address' => 'ltc1qbbbbbbbbbbbbbbbb')
     assert_equal 403, last_response.status
   end
+
 end

@@ -61,7 +61,9 @@ class InvoiceStats
     live.group_by(&:client_name).map { |c, l| [c, l.size, gel(l)] }.sort_by { |_, _, g| -g }.first(n)
   end
 
+  # [[ticker, name, invoices]] — name from the invoices' own snapshot.
   def crypto_usage
-    live.select(&:crypto?).group_by(&:crypto_coin).map { |c, l| [c, l.size] }.sort_by { |_, n| -n }
+    live.select(&:crypto?).group_by(&:crypto_coin)
+        .map { |c, l| [c, l.filter_map(&:crypto_name).last || c, l.size] }.sort_by { |_, _, n| -n }
   end
 end

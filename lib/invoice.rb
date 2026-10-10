@@ -103,7 +103,10 @@ class Invoice < Sequel::Model(:invoices)
 
     private
 
-    # Crypto is opt-in: only populated when an address is given. Rate and
+    # Crypto is opt-in: only populated when an address is given (the route
+    # fills these from the chosen PayoutAddress#snapshot). Name/scheme/amount
+    # param are copied so later payout edits don't change this invoice; a
+    # known ticker without them falls back to the built-in template. Rate and
     # amount are both optional; if amount is blank but rate is present,
     # derive it.
     def apply_crypto(invoice, params, subtotal)
@@ -111,10 +114,15 @@ class Invoice < Sequel::Model(:invoices)
       return if address.empty?
 
       coin = params[:crypto_coin].to_s.upcase
-      CryptoAsset.valid?(coin) or raise ArgumentError, "Unknown coin: #{coin}"
+      coin.match?(CryptoAsset::TICKER_RE) or raise ArgumentError, "Bad ticker: #{coin}"
+      tmpl = CryptoAsset::DEFAULTS[coin] || {}
+      pick = ->(k, t) { params.key?(k) ? params[k].to_s.strip.then { |v| v.empty? ? nil : v } : tmpl[t] }
 
       invoice.crypto_coin = coin
       invoice.crypto_address = address
+      invoice.crypto_name = pick.(:crypto_name, :name) || coin
+      invoice.crypto_scheme = pick.(:crypto_scheme, :scheme)
+      invoice.crypto_amount_param = pick.(:crypto_amount_param, :amount_param)
 
       rate = decimal_or_nil(params[:crypto_rate])
       invoice.crypto_rate = rate

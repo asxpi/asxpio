@@ -84,24 +84,19 @@
         </div>
 
         <h2>Crypto payment <span class="optional">(optional)</span></h2>
-        <p class="optional" style="margin-top:-6px;">Leave the address blank to omit the crypto block and QR from the invoice.</p>
-        <div class="invoice-grid">
-            <div class="field">
-                <label for="crypto_coin">Coin</label>
-                <select id="crypto_coin" name="crypto_coin">
-                    <% CryptoAsset::CODES.each do |c| %>
-                        <option value="<%= c %>" <%= 'selected' if (@form_values[:crypto_coin] || 'LTC') == c %>><%= c %> · <%= CryptoAsset.name(c) %></option>
-                    <% end %>
-                </select>
-            </div>
-            <div class="field">
-                <label for="crypto_address">Address</label>
-                <input type="text" id="crypto_address" name="crypto_address"
-                       value="<%= @form_values[:crypto_address] || PayoutAddress.map[@form_values[:crypto_coin] || 'LTC'] %>"
-                       placeholder="payout address" maxlength="128" />
-            </div>
+        <p class="optional" style="margin-top:-6px;">Choose a payout address to add a crypto block and QR to the invoice.</p>
+        <% payouts = PayoutAddress.active_list %>
+        <div class="field">
+            <label for="payout_id">Payout address <span class="optional">(<a href="/admin/invoices/payout-addresses">manage</a>)</span></label>
+            <select id="payout_id" name="payout_id">
+                <option value="" data-coin="">— no crypto payment —</option>
+                <% payouts.each do |p| %>
+                    <option value="<%= p.id %>" data-coin="<%= p.coin %>" data-rate="<%= p.coingecko ? '1' : '' %>" <%= 'selected' if @form_values[:payout_id].to_s == p.id.to_s %>><%= p.option_label %></option>
+                <% end %>
+            </select>
+            <% if @form_errors && @form_errors[:payout_id] %><span class="form-error"><%= @form_errors[:payout_id] %></span><% end %>
         </div>
-        <div class="invoice-grid">
+        <div class="invoice-grid" id="crypto-fields" <%= 'hidden' if @form_values[:payout_id].to_s.empty? %>>
             <div class="field">
                 <label for="crypto_rate">Rate (1 <span id="crypto-rate-coin">coin</span> in <span id="crypto-rate-ccy">currency</span>)</label>
                 <input type="text" id="crypto_rate" name="crypto_rate" value="<%= @form_values[:crypto_rate] %>"
@@ -115,7 +110,6 @@
                        placeholder="auto" inputmode="decimal" />
             </div>
         </div>
-        <script type="application/json" id="crypto-defaults"><%== PayoutAddress.map.to_json %></script>
 
         <button type="submit" class="download-button">Create invoice</button>
     </form>

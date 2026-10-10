@@ -1,8 +1,10 @@
 require 'json'
 
-# Registry of crypto payment assets — one asset (coin, or token+chain for
-# stablecoins) per invoice. Adding an asset is one entry here plus, optionally,
-# a default payout address in the CRYPTO_ADDRESSES env (JSON, code => address).
+# Built-in crypto templates. Payout addresses (payout_addresses table) carry
+# their own ticker, name, QR scheme, amount parameter and CoinGecko id; these
+# entries only prefill those fields for a known ticker, back-fill rows from
+# before that, and name legacy invoices. Nothing here limits which coins can
+# be used.
 #
 # QR encoding is driven by scheme/amount_param:
 #   scheme + amount_param  => scheme:<addr>?<param>=<amt>  (wallet prefills amount)
@@ -12,7 +14,7 @@ require 'json'
 # coingecko is the id for the simple/price endpoint; chain variants of a
 # stablecoin share the token's id.
 module CryptoAsset
-  ASSETS = {
+  DEFAULTS = {
     'BTC'        => { name: 'Bitcoin',              coingecko: 'bitcoin',  scheme: 'bitcoin',  amount_param: 'amount' },
     'LTC'        => { name: 'Litecoin',             coingecko: 'litecoin', scheme: 'litecoin', amount_param: 'amount' },
     'ETH'        => { name: 'Ethereum',             coingecko: 'ethereum', scheme: 'ethereum', amount_param: nil },
@@ -29,7 +31,15 @@ module CryptoAsset
     'USDC-ALGO'  => { name: 'USD Coin (Algorand)',  coingecko: 'usd-coin', scheme: nil,        amount_param: nil }
   }.freeze
 
-  CODES = ASSETS.keys.freeze
+  ASSETS = DEFAULTS # older name
+  CODES  = DEFAULTS.keys.freeze
+
+  TICKER_RE     = /\A[A-Z0-9][A-Z0-9-]{1,19}\z/
+  SCHEME_RE     = /\A[a-z][a-z0-9+.-]{1,31}\z/
+  AMOUNT_PARAMS = %w[amount tx_amount].freeze
+  # Suggestions for the admin form; wallets only honour real URI schemes.
+  KNOWN_SCHEMES = (DEFAULTS.values.filter_map { |a| a[:scheme] } +
+                   %w[dogecoin bitcoincash dash zcash tron ton]).uniq.freeze
 
   module_function
 

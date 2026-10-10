@@ -1,30 +1,72 @@
+<% writable = can?('invoices', 'write') %>
 <%== erb :'admin/_nav', layout: false %>
 <div class="header">
     <h1>Payout addresses</h1>
-    <p class="tagline"><a href="/admin/invoices">← invoices</a> · default address per coin, prefilled into new invoices</p>
+    <p class="tagline"><a href="/admin/invoices">← invoices</a> · crypto payment options for new invoices</p>
 </div>
 
 <% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
 
+<datalist id="schemes"><% CryptoAsset::KNOWN_SCHEMES.each do |sch| %><option value="<%= sch %>"></option><% end %></datalist>
+<datalist id="tickers"><% CryptoAsset::DEFAULTS.each do |code, a| %><option value="<%= code %>"><%= a[:name] %></option><% end %></datalist>
+
 <section class="section">
     <form class="invoice-form" method="post" action="/admin/invoices/payout-addresses" autocomplete="off">
         <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
-        <fieldset class="plain" <%= 'disabled' unless can?('invoices', 'write') %>>
-        <table class="invoice-list">
-            <thead><tr><th>Coin</th><th>Address</th><th>Updated</th></tr></thead>
-            <tbody>
-                <% CryptoAsset::CODES.each do |coin| %>
-                    <% row = @addresses[coin] %>
-                    <tr>
-                        <td><b class="mono"><%= coin %></b><br /><span class="optional"><%= CryptoAsset.name(coin) %></span></td>
-                        <td><input type="text" name="address[<%= coin %>]" value="<%= row&.address %>" class="mono" placeholder="not set" maxlength="128" spellcheck="false" /></td>
-                        <td class="optional"><%= row ? "#{row.updated_at.strftime('%Y-%m-%d')} · #{row.updated_by}" : '—' %></td>
-                    </tr>
+        <fieldset class="plain" <%= 'disabled' unless writable %>>
+        <% rows = @rows.map { |r| [r.id.to_s, r] } %>
+        <% rows << ['new', nil] if writable %>
+        <% rows.each do |key, r| %>
+            <div class="payout-card<%= ' inactive' if r && !r.active %><%= ' new' unless r %>">
+                <div class="payout-head">
+                    <b><%= r ? "#{r.name} · #{r.coin}" : 'Add a payout address' %></b>
+                    <% if r %>
+                        <label><input type="checkbox" name="payout[<%= key %>][active]" value="1" <%= 'checked' if r.active %> /> active</label>
+                    <% else %>
+                        <span class="optional">known tickers fill the rest automatically</span>
+                    <% end %>
+                </div>
+                <div class="payout-grid">
+                    <div class="field"><label>Name</label><input type="text" name="payout[<%= key %>][name]" value="<%= r&.name %>" placeholder="Litecoin (Ledger)" maxlength="60" /></div>
+                    <div class="field"><label>Ticker <span class="optional">(on the PDF)</span></label><input type="text" name="payout[<%= key %>][coin]" value="<%= r&.coin %>" list="tickers" placeholder="LTC" class="mono" maxlength="20" <%= 'required' if r %> /></div>
+                    <div class="field"><label>QR scheme <span class="optional">(empty = bare address)</span></label><input type="text" name="payout[<%= key %>][scheme]" value="<%= r&.scheme %>" list="schemes" placeholder="<%= r ? 'none (bare address)' : 'litecoin' %>" class="mono" /></div>
+                    <div class="field">
+                        <label>Amount in QR</label>
+                        <select name="payout[<%= key %>][amount_param]">
+                            <option value="" <%= 'selected' unless r&.amount_param %>>no</option>
+                            <% CryptoAsset::AMOUNT_PARAMS.each do |ap| %><option value="<%= ap %>" <%= 'selected' if r&.amount_param == ap %>><%= ap %></option><% end %>
+                        </select>
+                    </div>
+                    <div class="field"><label>CoinGecko id <span class="optional">(empty = type rate)</span></label><input type="text" name="payout[<%= key %>][coingecko]" value="<%= r&.coingecko %>" placeholder="<%= r ? 'none (type the rate)' : 'litecoin' %>" class="mono" /></div>
+                    <div class="field payout-address"><label>Address</label><input type="text" name="payout[<%= key %>][address]" value="<%= r&.address %>" placeholder="ltc1q…" class="mono" maxlength="128" spellcheck="false" <%= 'required' if r %> /></div>
+                </div>
+                <% if r %>
+                    <p class="mono optional qr-line">QR → <%= CryptoQr.uri(scheme: r.scheme, amount_param: r.amount_param, address: r.address, amount: BigDecimal('0.5')) %>
+                        <span class="payout-meta">· updated <%= r.updated_at.strftime('%Y-%m-%d') %> by <%= r.updated_by %></span></p>
                 <% end %>
-            </tbody>
-        </table>
-        <p class="optional">Leave a field empty to remove that default. Existing invoices keep the address captured when they were issued.</p>
-        <% if can?('invoices', 'write') %><button type="submit" class="download-button">Save addresses</button><% end %>
+            </div>
+        <% end %>
+        <ul class="optional">
+            <li><b>QR scheme</b> is the full coin name wallets recognise, without the colon: <span class="mono">litecoin</span>, not <span class="mono">ltc</span>. Leave it empty for tokens (USDT, USDC…): the QR then holds the bare address and the PDF tells the payer to check the network.</li>
+            <li><b>Amount in QR</b>: <span class="mono">amount</span> for Bitcoin-style coins (BTC, LTC, SOL…), <span class="mono">tx_amount</span> for Monero; needs a scheme.</li>
+            <li><b>CoinGecko id</b> enables "Fetch live" on the invoice form; it's the slug in the coin's coingecko.com URL.</li>
+            <li>Invoices copy these fields when issued, so editing, retiring or removing an entry never changes existing invoices.</li>
+        </ul>
+        <% if writable %><button type="submit" class="download-button">Save</button><% end %>
         </fieldset>
     </form>
 </section>
+
+<% if can?('invoices', 'delete') && @rows.any? %>
+<section class="section">
+    <h2>Remove</h2>
+    <div class="invoice-actions">
+        <% @rows.each do |r| %>
+            <form method="post" action="/admin/invoices/payout-addresses/<%= r.id %>/delete" onsubmit="return confirm('Remove this payout address? Existing invoices keep their copy.')">
+                <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+                <button type="submit" class="link-button danger"><%= r.coin %> · <%= r.name %></button>
+            </form>
+        <% end %>
+    </div>
+</section>
+<% end %>

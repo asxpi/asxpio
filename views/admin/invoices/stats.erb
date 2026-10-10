@@ -88,8 +88,8 @@
         <table class="invoice-list">
             <thead><tr><th>Asset</th><th class="num">Invoices</th></tr></thead>
             <tbody>
-                <% s.crypto_usage.each do |coin, n| %>
-                    <tr><td><span class="mono"><%= coin %></span> <span class="optional"><%= CryptoAsset.name(coin) %></span></td><td class="num mono"><%= n %></td></tr>
+                <% s.crypto_usage.each do |coin, name, n| %>
+                    <tr><td><span class="mono"><%= coin %></span> <span class="optional"><%= name %></span></td><td class="num mono"><%= n %></td></tr>
                 <% end %>
             </tbody>
         </table>

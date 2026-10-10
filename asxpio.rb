@@ -182,17 +182,18 @@ class AsxpioWeb < Sinatra::Base
     erb :'admin/invoices/index'
   end
 
-  # Live price of the selected crypto asset for the new-invoice form's
-  # "Fetch live" button. GEL is derived from the gel_rate the operator typed
-  # into the form.
+  # Live price for the new-invoice form's "Fetch live" button, using the
+  # chosen payout address's CoinGecko id. GEL is derived from the gel_rate
+  # the operator typed into the form.
   get '/admin/crypto-rate' do
     content_type :json
-    coin     = params[:coin].to_s.upcase
+    payout   = PayoutAddress[params[:payout].to_i]
     currency = params[:currency].to_s.upcase
     gel_rate = params[:gel_rate].to_s.strip
+    halt 404, { error: 'Unknown payout address' }.to_json unless payout
     begin
-      rate = CryptoRate.fetch(coin, currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
-      { rate: rate.round(8).to_s('F'), coin: coin, currency: currency }.to_json
+      rate = CryptoRate.fetch(payout.coingecko, currency, gel_rate: gel_rate.empty? ? nil : gel_rate)
+      { rate: rate.round(8).to_s('F'), coin: payout.coin, currency: currency }.to_json
     rescue CryptoRate::Error => e
       status 502
       { error: e.message }.to_json
@@ -235,20 +236,43 @@ class AsxpioWeb < Sinatra::Base
   get '/admin/invoices/payout-addresses' do
     @page_title = 'Payout addresses · admin'
     @noindex    = true
-    @addresses  = PayoutAddress.as_hash(:coin)
+    @rows       = PayoutAddress.listing
     @flash      = session.delete(:payout_flash)
     erb :'admin/invoices/payout_addresses'
   end
 
+  # One form edits every row (payout[id][...]); payout[new][...] adds one,
+  # filling empty fields from the built-in template for a known ticker.
   post '/admin/invoices/payout-addresses' do
-    before = PayoutAddress.map
-    errors = CryptoAsset::CODES.filter_map do |coin|
-      next unless params.dig('address', coin)
-      PayoutAddress.set!(coin, params['address'][coin], by: current_user.username)
+    errors, changed = [], []
+    (params['payout'] || {}).each do |id, raw|
+      fresh = id == 'new'
+      next if fresh && raw['address'].to_s.strip.empty?
+      v = PayoutAddress.clean(raw, fill_from_template: fresh)
+      if (e = PayoutAddress.error_for(v)) then errors << e; next end
+      stamp = { updated_by: current_user.username, updated_at: Time.now.utc }
+      if fresh
+        row = PayoutAddress.create(**v, active: true, **stamp)
+        changed << "+#{row.coin} #{row.name}"
+      else
+        row = PayoutAddress[id.to_i] or next
+        row.set(**v, active: raw['active'] == '1')
+        next unless row.modified?
+        row.set(**stamp).save_changes
+        changed << "#{row.coin} #{row.name}"
+      end
     end
-    changed = (before.keys | PayoutAddress.map.keys).reject { |c| before[c] == PayoutAddress.map[c] }
-    audit!('invoice.payout_addresses', changed.join(', '), nil) if changed.any?
-    session[:payout_flash] = errors.any? ? errors.join('; ') : "Saved#{" (#{changed.join(', ')})" if changed.any?}."
+    audit!('invoice.payout_addresses', nil, changed.join('; ')) if changed.any?
+    session[:payout_flash] = errors.any? ? errors.join('; ') : (changed.any? ? 'Saved.' : 'Nothing changed.')
+    redirect '/admin/invoices/payout-addresses'
+  end
+
+  # Existing invoices keep their own copy, so removal is safe.
+  post '/admin/invoices/payout-addresses/:id/delete' do
+    row = PayoutAddress[params[:id].to_i] or halt 404
+    row.destroy
+    audit!('invoice.payout_address_delete', row.coin, "#{row.name} #{row.address}")
+    session[:payout_flash] = "Removed #{row.coin} · #{row.name}."
     redirect '/admin/invoices/payout-addresses'
   end
 
@@ -280,8 +304,7 @@ class AsxpioWeb < Sinatra::Base
       issued_on:      Date.today.strftime('%Y-%m-%d'),
       due_on:         (Date.today + term).strftime('%Y-%m-%d'),
       notes:          src.notes,
-      crypto_coin:    src.crypto_coin,
-      crypto_address: src.crypto_address,
+      payout_id:      PayoutAddress.first(coin: src.crypto_coin, address: src.crypto_address, active: true)&.id.to_s,
       items:          src.items_array
     }
     erb :'admin/invoices/new'
@@ -297,8 +320,7 @@ class AsxpioWeb < Sinatra::Base
       issued_on:      params[:issued_on].to_s.strip,
       due_on:         params[:due_on].to_s.strip,
       notes:          params[:notes].to_s.strip,
-      crypto_coin:    params[:crypto_coin].to_s.upcase,
-      crypto_address: params[:crypto_address].to_s.strip,
+      payout_id:      params[:payout_id].to_s.strip,
       crypto_rate:    params[:crypto_rate].to_s.strip,
       crypto_amount:  params[:crypto_amount].to_s.strip,
       items:          (params[:items] || {}).values
@@ -317,9 +339,11 @@ class AsxpioWeb < Sinatra::Base
     # The PDF embeds the number, so a retry must re-render, not just re-save.
     # A losing attempt orphans its two S3 objects; harmless and near-impossible
     # with a single operator.
+    build_params = @form_values.merge(@payout ? @payout.snapshot : {})
+
     attempts = 0
     begin
-      invoice = Invoice.build(@form_values)
+      invoice = Invoice.build(build_params)
       # Base key (no suffix); the two status variants get -pending/-paid appended.
       invoice.pdf_key = "invoices/#{invoice.number}-#{invoice.uuid}.pdf"
       %w[pending paid].each do |st|
@@ -441,11 +465,12 @@ class AsxpioWeb < Sinatra::Base
       end
       v[:items] = items
 
-      # Crypto is optional; validate only when an address is present.
-      unless v[:crypto_address].to_s.strip.empty?
-        errors[:crypto_coin] = 'Unknown coin' unless CryptoAsset.valid?(v[:crypto_coin])
-        # Loose shape check: every supported chain's addresses are alphanumeric.
-        errors[:crypto_address] = 'Address looks invalid' unless v[:crypto_address] =~ /\A[a-zA-Z0-9]{10,128}\z/
+      # Crypto is optional: a chosen payout address (validated when it was
+      # saved) supplies ticker, address and QR metadata.
+      @payout = nil
+      unless v[:payout_id].to_s.empty?
+        @payout = PayoutAddress.first(id: v[:payout_id].to_i, active: true)
+        errors[:payout_id] = 'Pick an active payout address' unless @payout
         %i[crypto_rate crypto_amount].each do |k|
           next if v[k].to_s.strip.empty?
           begin

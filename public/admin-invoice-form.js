@@ -36,9 +36,8 @@
         reindex();
     });
 
-    // --- Crypto: coin select, live rate fetch + auto amount -------------
-    const coinSel = document.getElementById('crypto_coin');
-    const addressInput = document.getElementById('crypto_address');
+    // --- Crypto: payout address, live rate fetch + auto amount ----------
+    const payoutSel = document.getElementById('payout_id');
     const rateInput = document.getElementById('crypto_rate');
     const amountInput = document.getElementById('crypto_amount');
     const fetchBtn = document.getElementById('fetch-crypto-rate');
@@ -48,20 +47,13 @@
     const currencySel = document.getElementById('currency');
     const gelRateInput = document.getElementById('gel_rate');
 
-    // Default payout addresses per coin, rendered server-side from env.
-    let cryptoDefaults = {};
-    const defaultsEl = document.getElementById('crypto-defaults');
-    if (defaultsEl) {
-        try { cryptoDefaults = JSON.parse(defaultsEl.textContent); } catch (e) { /* leave empty */ }
+    function selectedPayout() {
+        return payoutSel ? payoutSel.selectedOptions[0] : null;
     }
 
-    // On coin change: swap in the new coin's default address, but never
-    // clobber a hand-entered one (only replace blank or known defaults).
-    if (coinSel && addressInput) {
-        coinSel.addEventListener('change', function () {
-            const val = addressInput.value.trim();
-            const isDefault = val === '' || Object.values(cryptoDefaults).indexOf(val) !== -1;
-            if (isDefault) addressInput.value = cryptoDefaults[coinSel.value] || '';
+    // A different payout address means a different coin: stale rate/amount out.
+    if (payoutSel) {
+        payoutSel.addEventListener('change', function () {
             rateInput.value = '';
             if (amountInput) amountInput.value = '';
             amountTouched = false;
@@ -99,7 +91,11 @@
         const ccy = currencySel ? currencySel.value : 'USD';
         if (rateCcy) rateCcy.textContent = ccy;
         if (gelRateCcy) gelRateCcy.textContent = ccy;
-        if (rateCoin && coinSel) rateCoin.textContent = coinSel.value;
+        const opt = selectedPayout();
+        const cryptoFields = document.getElementById('crypto-fields');
+        if (cryptoFields) cryptoFields.hidden = !(opt && opt.value); // rate/amount only with a payout address
+        if (rateCoin) rateCoin.textContent = (opt && opt.dataset.coin) || 'coin';
+        if (fetchBtn) fetchBtn.hidden = !(opt && opt.dataset.rate); // no CoinGecko id: type the rate
     }
     syncCcyLabel();
     if (currencySel) currencySel.addEventListener('change', syncCcyLabel);
@@ -110,8 +106,9 @@
     if (fetchBtn) {
         fetchBtn.addEventListener('click', function () {
             const ccy = currencySel ? currencySel.value : 'USD';
-            const coin = coinSel ? coinSel.value : 'LTC';
-            const params = new URLSearchParams({ coin: coin, currency: ccy });
+            const opt = selectedPayout();
+            if (!opt || !opt.value) { rateStatus.textContent = ' choose a payout address first'; return; }
+            const params = new URLSearchParams({ payout: opt.value, currency: ccy });
             if (gelRateInput && gelRateInput.value) params.set('gel_rate', gelRateInput.value);
             rateStatus.textContent = ' fetching…';
             fetch('/admin/crypto-rate?' + params.toString(), { headers: { Accept: 'application/json' } })

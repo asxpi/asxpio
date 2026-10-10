@@ -289,20 +289,21 @@ class InvoicePdf
 
   def draw_crypto(pdf)
     coin    = @invoice.crypto_coin
-    asset   = CryptoAsset[coin] || {}
+    name    = @invoice.crypto_name || CryptoAsset.name(coin) # snapshot; legacy fallback
     amount  = @invoice.crypto_amount_due
     qr_size = 78
 
     pdf.move_down 12
     pdf.fill_color COLOR_MUTED
-    pdf.font_size(8) { pdf.text "PAY IN #{CryptoAsset.name(coin).upcase} (#{coin})", character_spacing: 1.5 }
+    pdf.font_size(8) { pdf.text "PAY IN #{name.upcase} (#{coin})", character_spacing: 1.5 }
     pdf.fill_color COLOR_TEXT
     pdf.move_down 4
 
     # Fixed-height row: QR on the right (drawn with float so it doesn't advance
     # the cursor), text column on the left. The outer bounding_box of height
     # qr_size leaves the cursor exactly below the row when it ends.
-    qr_bytes = CryptoQr.png(coin, @invoice.crypto_address, amount)
+    qr_bytes = CryptoQr.png(scheme: @invoice.crypto_scheme, amount_param: @invoice.crypto_amount_param,
+                            address: @invoice.crypto_address, amount: amount)
     pdf.bounding_box([0, pdf.cursor], width: pdf.bounds.width, height: qr_size) do
       pdf.float do
         pdf.bounding_box([pdf.bounds.right - qr_size, pdf.bounds.top], width: qr_size, height: qr_size) do
@@ -325,8 +326,8 @@ class InvoicePdf
           pdf.font_size(8) { pdf.text @invoice.crypto_address }
           pdf.move_down 3
           pdf.fill_color COLOR_MUTED
-          hint = if asset[:amount_param]
-                   "Scan the QR with any #{CryptoAsset.name(coin)} wallet to prefill the payment."
+          hint = if @invoice.crypto_scheme && @invoice.crypto_amount_param
+                   "Scan the QR with any #{name} wallet to prefill the payment."
                  else
                    "QR encodes the address. Send #{coin} only. Verify the network before sending."
                  end
