@@ -143,6 +143,11 @@ module Bingo
       key.delete_prefix(Photo::PREFIX)
     end
 
+    # Paragraphs of the datacenter page's prose in exactly this locale.
+    def about(locale)
+      self[:"about_#{locale}"].to_s.strip.split(/\n\s*\n/).map(&:strip)
+    end
+
     # 1200x630 JPEG for og:image (every preview client renders it); the
     # webp dialog variant until it exists.
     def og_file

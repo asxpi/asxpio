@@ -252,6 +252,16 @@ class BingoTest < Minitest::Test
     refute_includes last_response.body, 'rel="prev"'
   end
 
+  def test_dc_about_text
+    @app = AsxpioWeb
+    token = admin_token("/admin/bingo/dc/#{@dcs[1].id}")
+    post "/admin/bingo/dc/#{@dcs[1].id}", dc_params(authenticity_token: token, about_en: "First <b>para</b>.\r\n\r\nSecond."), admin_env
+    assert_equal "First <b>para</b>.\r\n\r\nSecond.", @dcs[1].refresh.about_en
+    public = Rack::MockRequest.new(BingoWeb) # rack-test's session is bound to AsxpioWeb now
+    assert_includes public.get('/en/dc/dc-2').body, '<p class="facts">First &lt;b&gt;para&lt;/b&gt;.</p><p class="facts">Second.</p>'
+    refute_includes public.get('/ru/dc/dc-2').body, 'Second.' # no fallback across languages
+  end
+
   def test_reserve_dc_has_a_page
     Bingo::Datacenter.create(slug: 'dc-26', position: 26, name_ru: 'ЦОД 26', city_ru: 'Тверь', operator: 'Op')
     get '/ru/dc/dc-26'

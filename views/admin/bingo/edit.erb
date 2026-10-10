@@ -65,6 +65,9 @@
         <div class="field"><label for="photo_credit">Photo credit</label><input type="text" id="photo_credit" name="photo_credit" value="<%= @dc.photo_credit %>" /></div>
         <div class="field"><label for="photo_source_url">Photo source URL</label><input type="url" id="photo_source_url" name="photo_source_url" value="<%= @dc.photo_source_url %>" /></div>
         <div class="field"><label for="info_url">Info / fact source URL</label><input type="url" id="info_url" name="info_url" value="<%= @dc.info_url %>" /></div>
+        <% %w[ru en uk].each do |l| %>
+            <div class="field"><label for="about_<%= l %>">About (<%= l %>) <span class="optional">(datacenter page; blank lines split paragraphs; not translated automatically, blank = hidden)</span></label><textarea id="about_<%= l %>" name="about_<%= l %>" rows="4" maxlength="5000"><%= @dc[:"about_#{l}"] %></textarea></div>
+        <% end %>
         <% if can?('bingo', 'write') %><button type="submit" class="download-button"><%= fresh ? 'Add datacenter' : 'Save' %></button><% end %>
         </fieldset>
     </form>

@@ -14,6 +14,7 @@
     <h1><%= dc.l(:name, @locale) %></h1>
     <%== erb :_dc_meta, layout: false, locals: { dc: dc } %>
     <p class="facts"><%= dc_facts(dc).join(' ') %></p>
+    <% dc.about(@locale).each do |para| %><p class="facts"><%= para %></p><% end %>
     <section>
       <h2><%= t(:incidents) %></h2>
       <%== erb :_dc_incidents, layout: false, locals: { dc: dc } %>

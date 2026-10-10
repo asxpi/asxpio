@@ -4,7 +4,7 @@ require 'uri'
 # Registered into AsxpioWeb, so AdminAuth (HTTP Basic) and CSRF apply.
 module BingoAdmin
   DC_TEXT = %w[name_ru name_en name_uk city_ru city_en city_uk operator mw mw_type status
-               photo_credit photo_source_url info_url].freeze
+               photo_credit photo_source_url info_url about_ru about_en about_uk].freeze
 
   module Helpers
     def bingo_public_url
