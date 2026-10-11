@@ -178,7 +178,7 @@ module Bingo
   end
 
   # Board state for rendering: ordered cells, hits and completed lines.
-  VIEWS = %w[all operational].freeze
+  VIEWS = %w[operational all].freeze # first is the default (bare URL)
 
   # The card: the first SIZE*SIZE datacenters by position, optionally only
   # operational ones (same ranking, construction projects skipped).

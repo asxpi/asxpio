@@ -23,9 +23,10 @@ class BingoWeb < Sinatra::Base
     def kind_label(kind) = Bingo::T[@locale][:kinds][kind] || Bingo::T[@locale][:kinds]['other']
     def kind_icon(kind) = Bingo::ICONS[kind] || Bingo::ICONS['other']
     def photo_path(dc, width = nil) = dc.photo_file(width) && "/p/#{dc.photo_file(width)}"
-    # Path for a locale/view combination; the default view keeps a bare URL.
+    # Path for a locale/view combination; the default view (operational)
+    # keeps a bare URL, the full list is ?view=all.
     def card_path(locale = @locale, view = @view)
-      view == 'operational' ? "/#{locale}?view=operational" : "/#{locale}"
+      view == 'all' ? "/#{locale}?view=all" : "/#{locale}"
     end
 
     def dc_path(dc, locale = @locale) = "/#{locale}/dc/#{dc.slug}"
@@ -165,11 +166,11 @@ class BingoWeb < Sinatra::Base
 
   get %r{/(ru|en|uk)} do |locale|
     @locale = locale
-    @view   = Bingo::VIEWS.include?(params[:view]) ? params[:view] : 'all'
+    @view   = params[:view] == 'all' ? 'all' : Bingo::VIEWS.first
     @board  = Bingo::Board.load(@view)
     @title  = t(:seo_title)
     @desc   = format(t(:seo_desc), hit: @board.hit.count(true), total: @board.cells.size)
-    @noindex = @board.operational_only?
+    @noindex = !@board.operational_only? # ?view=all is a variant of the bare page
     @path_for = ->(l) { "/#{l}" }
     @x_default = '/'
     @og = og_dc(@board)

@@ -132,21 +132,28 @@ class BingoTest < Minitest::Test
     assert_equal 1, Bingo::Board.load('operational').wins.size
   end
 
-  def test_view_toggle_page
-    get '/ru?view=operational'
+  def test_default_view_is_operational_and_all_is_a_noindex_variant
+    @dcs[0].update(status: 'building')
+    get '/ru'
     assert last_response.ok?
+    refute_includes last_response.body, 'ЦОД 1<'                     # construction project hidden by default
+    assert_includes last_response.body, 'index, follow, max-image-preview'
+    assert_includes last_response.body, '<a href="/ru" aria-current="page">'
+    get '/ru?view=all'
+    assert last_response.ok?
+    assert_includes last_response.body, 'ЦОД 1<'
     assert_includes last_response.body, 'noindex, follow'
-    assert_includes last_response.body, 'href="/en?view=operational"'  # language links keep the view
-    assert_includes last_response.body, '<a href="/ru?view=operational" aria-current="page">'  # followed internal link
+    assert_includes last_response.body, 'href="/en?view=all"'         # language links keep the view
+    assert_includes last_response.body, '<a href="/ru?view=all" aria-current="page">'
     assert_includes last_response.body, 'rel="canonical" href="https://example.org/ru"'
-    get '/ru?view=bogus'
+    get '/ru?view=operational'                                        # old links still land on the default
     assert_includes last_response.body, 'index, follow, max-image-preview'
   end
 
   def test_capacity_type_and_planned_status
     @dcs[0].update(mw: '64', mw_type: 'design', status: 'planned')
     @dcs[1].update(mw: '17', mw_type: 'mva')
-    get '/en'
+    get '/en?view=all'                                # planned sites only appear in the full list
     body = last_response.body
     assert_includes body, '64 MW · design'           # dialog
     assert_includes body, '#1 · 64 MW</div>'         # cell: no tag
@@ -204,9 +211,9 @@ class BingoTest < Minitest::Test
   end
 
   def test_trailing_slash_redirects
-    get '/en/', view: 'operational'
+    get '/en/', view: 'all'
     assert_equal 301, last_response.status
-    assert_equal 'http://example.org/en?view=operational', last_response.location
+    assert_equal 'http://example.org/en?view=all', last_response.location
   end
 
   def test_icons

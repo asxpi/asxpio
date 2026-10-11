@@ -162,7 +162,7 @@ class AsxpioWeb < Sinatra::Base
       }
     end
     if can?('bingo', 'read')
-      board = Bingo::Board.load
+      board = Bingo::Board.load('operational') # same card as the public default
       @bingo = {
         cells:         board.cells.size,
         hit:           board.hit.count(true),
