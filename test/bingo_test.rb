@@ -215,6 +215,16 @@ class BingoTest < Minitest::Test
     assert_nil @dcs[0].refresh.provider
   end
 
+  def test_footer_credits_in_every_language
+    { 'ru' => 'с помощью Claude', 'en' => 'with the help of Claude', 'uk' => 'за допомогою Claude' }.each do |l, text|
+      get "/#{l}"
+      assert_includes last_response.body, text
+      assert_includes last_response.body, '<a href="https://hackyourmom.com/en/karta-data-czentriv-na-rasii/" target="_blank" rel="noopener">hackyourmom</a>'
+    end
+    get "/en/dc/#{@dcs[0].slug}"
+    assert_includes last_response.body, 'hackyourmom</a>'
+  end
+
   def test_robots_and_sitemap_are_the_bingos_own
     get '/robots.txt'
     assert last_response.ok?
