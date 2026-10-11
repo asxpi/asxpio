@@ -22,14 +22,18 @@ module Bingo
     'datapro' => %w[DataPro] * 3, 'selectel' => %w[Selectel] * 3, 'mws' => ['MWS / МТС', 'MWS / MTS', 'MWS / МТС'],
     'keypoint' => ['Key Point'] * 3, '3data' => %w[3data] * 3, 'sber' => %w[Сбер Sber Сбер],
     'megafon' => %w[МегаФон MegaFon МегаФон], 'datahouse' => %w[DataHouse] * 3, 'oxygen' => %w[OXYGEN] * 3,
-    'linx' => %w[Linx] * 3, 'cloudx' => ['Cloud X'] * 3, 'nkgroup' => ['NK Group'] * 3, 'goznak' => %w[Гознак Goznak Гознак]
+    'linx' => %w[Linx] * 3, 'cloudx' => ['Cloud X'] * 3, 'nkgroup' => ['NK Group'] * 3, 'goznak' => %w[Гознак Goznak Гознак],
+    'dataspace' => %w[DataSpace] * 3, 'cloudru' => %w[Cloud.ru] * 3, 'x5' => ['X5 Group'] * 3, 'krok' => %w[КРОК CROC КРОК],
+    'stack' => ['Stack Group'] * 3, 'beeline' => %w[Билайн Beeline Білайн]
   }.transform_values { |names| %w[ru en uk].zip(names).to_h }.freeze
 
   PROVIDER_GUESS = [
     [/\AЯндекс/i, 'yandex'], [/\AIXcellerate/i, 'ixcellerate'], [/\AРТК-ЦОД/i, 'rtk'], [/\A(Атомдата|Росатом)/i, 'atomdata'],
     [/\ADataPro/i, 'datapro'], [/\ASelectel/i, 'selectel'], [/\A(MWS|МТС)/i, 'mws'], [/\AKey Point/i, 'keypoint'],
     [/\A3data/i, '3data'], [/\AСбер/i, 'sber'], [/\AМегаФон/i, 'megafon'], [/\ADataHouse/i, 'datahouse'],
-    [/\AOXYGEN/i, 'oxygen'], [/\ALinx/i, 'linx'], [/\ACloud X/i, 'cloudx'], [/\ANK Group/i, 'nkgroup'], [/\AГознак/i, 'goznak']
+    [/\AOXYGEN/i, 'oxygen'], [/\ALinx/i, 'linx'], [/\ACloud X/i, 'cloudx'], [/\ANK Group/i, 'nkgroup'], [/\AГознак/i, 'goznak'],
+    [/\ADataSpace/i, 'dataspace'], [/\ACloud\.ru/i, 'cloudru'], [/\AX5/i, 'x5'], [/\A(КРОК|CROC)/i, 'krok'],
+    [/\AStack/i, 'stack'], [/\A(Билайн|Beeline|ВымпелКом)/i, 'beeline']
   ].freeze
 
   def self.provider_name(slug, locale) = PROVIDERS.dig(slug, locale) || slug
