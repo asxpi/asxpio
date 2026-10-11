@@ -25,8 +25,17 @@ class BingoWeb < Sinatra::Base
     def photo_path(dc, width = nil) = dc.photo_file(width) && "/p/#{dc.photo_file(width)}"
     # Path for a locale/view combination; the default view (operational)
     # keeps a bare URL, the full list is ?view=all.
-    def card_path(locale = @locale, view = @view)
-      view == 'all' ? "/#{locale}?view=all" : "/#{locale}"
+    # Path for a locale/view/provider selection; the default (operational,
+    # every provider) keeps a bare URL.
+    def card_path(locale = @locale, view = @view, providers = @providers)
+      q = []
+      q << 'view=all' if view == 'all'
+      Array(providers).each { |p| q << "p[]=#{Rack::Utils.escape(p)}" }
+      q.empty? ? "/#{locale}" : "/#{locale}?#{q.join('&')}"
+    end
+
+    def selected_providers
+      Array(params[:p]).flat_map { |v| v.to_s.split(',') }.select { |p| Bingo::PROVIDERS.key?(p) }.uniq
     end
 
     def dc_path(dc, locale = @locale) = "/#{locale}/dc/#{dc.slug}"
@@ -167,10 +176,11 @@ class BingoWeb < Sinatra::Base
   get %r{/(ru|en|uk)} do |locale|
     @locale = locale
     @view   = params[:view] == 'all' ? 'all' : Bingo::VIEWS.first
-    @board  = Bingo::Board.load(@view)
+    @providers = selected_providers
+    @board  = Bingo::Board.load(@view, providers: @providers)
     @title  = t(:seo_title)
     @desc   = format(t(:seo_desc), hit: @board.hit.count(true), total: @board.cells.size)
-    @noindex = !@board.operational_only? # ?view=all is a variant of the bare page
+    @noindex = !@board.operational_only? || @board.filtered? # variants of the bare page
     @path_for = ->(l) { "/#{l}" }
     @x_default = '/'
     @og = og_dc(@board)

@@ -17,6 +17,20 @@
   </header>
 
   <p class="lead"><%= t(:desc) %></p>
+  <% provs = Bingo::Board.providers(@view) %>
+  <form class="providers" method="get" action="/<%= @locale %>">
+    <% if @view == 'all' %><input type="hidden" name="view" value="all"><% end %>
+    <fieldset>
+      <legend><%= t(:providers_label) %></legend>
+      <% provs.each do |slug, total, crossed| %>
+        <label><input type="checkbox" name="p[]" value="<%= slug %>" <%= 'checked' if @providers.include?(slug) %>> <%= Bingo.provider_name(slug, @locale) %> <span><%= crossed %>/<%= total %></span></label>
+      <% end %>
+    </fieldset>
+    <div class="provider-actions">
+      <button type="submit"><%= t(:providers_apply) %></button>
+      <% if @board.filtered? %><a href="<%= card_path(@locale, @view, []) %>"><%= t(:providers_reset) %></a><% end %>
+    </div>
+  </form>
   <p class="meta">
     <%= t(:crossed) %> <b><%= b.hit.count(true) %></b>/<%= b.cells.size %>
     · <%= t(:lines) %> <b><%= b.wins.size %></b>
@@ -48,6 +62,7 @@
         <% if b.hit[idx] %><div class="stamp"><%= kind_icon(dc.incidents.first.kind) %></div><% end %>
       </a>
     <% end %>
+    <% (b.cells.size...Bingo::SIZE**2).each do %><div class="cell empty" aria-hidden="true"></div><% end %>
   </div>
 
   <section>

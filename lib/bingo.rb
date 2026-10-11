@@ -15,6 +15,26 @@ module Bingo
   STATUSES = %w[operational building planned].freeze
   MW_TYPES = %w[it connected total design mva].freeze
 
+  # Providers (companies) for the per-provider cards: slug => name per locale.
+  PROVIDERS = {
+    'yandex' => %w[Яндекс Yandex Яндекс], 'ixcellerate' => %w[IXcellerate] * 3,
+    'rtk' => %w[РТК-ЦОД RTK-DC РТК-ЦОД], 'atomdata' => ['Атомдата (Росатом)', 'Atomdata (Rosatom)', 'Атомдата (Росатом)'],
+    'datapro' => %w[DataPro] * 3, 'selectel' => %w[Selectel] * 3, 'mws' => ['MWS / МТС', 'MWS / MTS', 'MWS / МТС'],
+    'keypoint' => ['Key Point'] * 3, '3data' => %w[3data] * 3, 'sber' => %w[Сбер Sber Сбер],
+    'megafon' => %w[МегаФон MegaFon МегаФон], 'datahouse' => %w[DataHouse] * 3, 'oxygen' => %w[OXYGEN] * 3,
+    'linx' => %w[Linx] * 3, 'cloudx' => ['Cloud X'] * 3, 'nkgroup' => ['NK Group'] * 3, 'goznak' => %w[Гознак Goznak Гознак]
+  }.transform_values { |names| %w[ru en uk].zip(names).to_h }.freeze
+
+  PROVIDER_GUESS = [
+    [/\AЯндекс/i, 'yandex'], [/\AIXcellerate/i, 'ixcellerate'], [/\AРТК-ЦОД/i, 'rtk'], [/\A(Атомдата|Росатом)/i, 'atomdata'],
+    [/\ADataPro/i, 'datapro'], [/\ASelectel/i, 'selectel'], [/\A(MWS|МТС)/i, 'mws'], [/\AKey Point/i, 'keypoint'],
+    [/\A3data/i, '3data'], [/\AСбер/i, 'sber'], [/\AМегаФон/i, 'megafon'], [/\ADataHouse/i, 'datahouse'],
+    [/\AOXYGEN/i, 'oxygen'], [/\ALinx/i, 'linx'], [/\ACloud X/i, 'cloudx'], [/\ANK Group/i, 'nkgroup'], [/\AГознак/i, 'goznak']
+  ].freeze
+
+  def self.provider_name(slug, locale) = PROVIDERS.dig(slug, locale) || slug
+  def self.guess_provider(operator) = PROVIDER_GUESS.find { |re, _| operator.to_s.match?(re) }&.last
+
   # Every row, column and both diagonals, as 0-based cell indices.
   LINES = (
     (0...SIZE).map { |r| (0...SIZE).map { |c| r * SIZE + c } } +
@@ -40,6 +60,7 @@ module Bingo
       footer: 'Данные из открытых источников (2025–2026). Клетка зачёркивается только по публичному источнику.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожар', 'outage' => 'Отключение', 'flood' => 'Затопление', 'cooling' => 'Перегрев', 'other' => 'Инцидент' },
       letters: %w[Б И Н Г О],
+      providers_label: 'Собрать карточку из провайдеров', providers_apply: 'Показать', providers_reset: 'Все провайдеры',
       view_all: 'Все', view_operational: 'Только действующие', view_label: 'Какие ЦОДы показывать',
       dc_title: '%{name} (%{city}) — инциденты ЦОДа | Бинго ЦОДов',
       dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Бинго ЦОДов',
@@ -67,6 +88,7 @@ module Bingo
       footer: 'Open-source data (2025–2026). A cell is crossed out only with a public source.',
       kinds: { 'strike' => 'Drone strike', 'fire' => 'Fire', 'outage' => 'Outage', 'flood' => 'Flood', 'cooling' => 'Overheating', 'other' => 'Incident' },
       letters: %w[B I N G O],
+      providers_label: 'Build a card from providers', providers_apply: 'Show', providers_reset: 'All providers',
       view_all: 'All', view_operational: 'Operational only', view_label: 'Which datacenters to show',
       dc_title: '%{name} (%{city}) — datacenter incidents | Datacenter Bingo',
       dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Datacenter Bingo',
@@ -94,6 +116,7 @@ module Bingo
       footer: 'Дані з відкритих джерел (2025–2026). Клітинка закреслюється лише за публічним джерелом.',
       kinds: { 'strike' => 'Атака БПЛА', 'fire' => 'Пожежа', 'outage' => 'Відключення', 'flood' => 'Затоплення', 'cooling' => 'Перегрів', 'other' => 'Інцидент' },
       letters: %w[Б І Н Г О],
+      providers_label: 'Зібрати картку з провайдерів', providers_apply: 'Показати', providers_reset: 'Усі провайдери',
       view_all: 'Усі', view_operational: 'Лише діючі', view_label: 'Які ЦОДи показувати',
       dc_title: '%{name} (%{city}) — інциденти ЦОДу | Бінго ЦОДів',
       dc_title_hit: '%{name} (%{city}) — %{kind}, %{date} | Бінго ЦОДів',
@@ -120,6 +143,7 @@ module Bingo
 
     def before_create
       self.created_at ||= Time.now.utc
+      self.provider ||= Bingo.guess_provider(operator)
       super
     end
 
@@ -182,16 +206,31 @@ module Bingo
 
   # The card: the first SIZE*SIZE datacenters by position, optionally only
   # operational ones (same ranking, construction projects skipped).
-  Board = Struct.new(:cells, :hit, :wins, :incidents, :updated_on, :view) do
-    def self.load(view = 'all')
+  # The card is always 5×5: the first SIZE*SIZE datacenters by position,
+  # optionally only operational ones and/or only the chosen providers. A
+  # selection with fewer datacenters leaves the remaining cells empty.
+  Board = Struct.new(:cells, :hit, :wins, :incidents, :updated_on, :view, :providers) do
+    def self.load(view = 'all', providers: nil)
       scope = Datacenter.order(:position, :id)
       scope = scope.where(status: 'operational') if view == 'operational'
+      scope = scope.where(provider: providers) if providers&.any?
       cells = scope.limit(SIZE * SIZE).eager(:incidents).all
       hit   = cells.map { |dc| dc.incidents.any? }
       wins  = LINES.select { |line| line.all? { |i| hit[i] } }
       incidents = cells.flat_map(&:incidents).sort_by { |i| [i.occurred_on, i.id] }.reverse
       updated = [Datacenter.max(:updated_at), Incident.max(:updated_at)].compact.max
-      new(cells, hit, wins, incidents, updated, view)
+      new(cells, hit, wins, incidents, updated, view, providers)
+    end
+
+    def filtered? = providers&.any? || false
+
+    # [[slug, total, crossed]] for every provider with datacenters in this view.
+    def self.providers(view)
+      scope = Datacenter.exclude(provider: nil)
+      scope = scope.where(status: 'operational') if view == 'operational'
+      scope.eager(:incidents).all.group_by(&:provider)
+           .map { |slug, dcs| [slug, dcs.size, dcs.count { |d| d.incidents.any? }] }
+           .sort_by { |slug, n, x| [-x, -n, slug] }
     end
 
     def operational_only? = view == 'operational'

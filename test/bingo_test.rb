@@ -174,6 +174,47 @@ class BingoTest < Minitest::Test
     assert_nil @dcs[0].refresh.mw_type
   end
 
+  def test_provider_guessed_on_create
+    dc = Bingo::Datacenter.create(slug: 'ya-x', position: 30, name_ru: 'Я', city_ru: 'М', operator: 'Яндекс')
+    assert_equal 'yandex', dc.provider
+    assert_nil Bingo::Datacenter.create(slug: 'zz', position: 31, name_ru: 'Z', city_ru: 'М', operator: 'Op').provider
+  end
+
+  def test_provider_filter_keeps_a_5x5_card
+    @dcs.first(3).each { |d| d.update(provider: 'yandex') }
+    @dcs[3].update(provider: 'rtk')
+    hit!(0)
+    board = Bingo::Board.load('operational', providers: %w[yandex rtk])
+    assert_equal %w[dc-1 dc-2 dc-3 dc-4], board.cells.map(&:slug)
+    get '/ru?p[]=yandex&p[]=rtk&p[]=bogus'
+    assert last_response.ok?
+    body = last_response.body
+    assert_equal 4, body.scan(/class="cell(?! empty)[ "]/).size       # the four selected datacenters
+    assert_equal 21, body.scan('class="cell empty"').size
+    assert_includes body, 'noindex, follow'
+    assert_includes body, 'rel="canonical" href="https://example.org/ru"'
+    assert_includes body, 'href="/en?p[]=yandex&amp;p[]=rtk"'           # language links keep the selection
+    assert_includes body, 'name="p[]" value="yandex" checked'
+    refute_includes body, 'ЦОД 5<'                                    # unselected provider
+    get '/ru?p=yandex,rtk'                                            # comma form works too
+    assert_equal 21, last_response.body.scan('class="cell empty"').size
+  end
+
+  def test_filtered_card_still_scores_lines
+    @dcs.first(5).each { |d| d.update(provider: 'ixcellerate') }
+    (0..4).each { |i| hit!(i) }
+    assert_equal 1, Bingo::Board.load('operational', providers: ['ixcellerate']).wins.size
+  end
+
+  def test_admin_saves_provider
+    @app = AsxpioWeb
+    token = admin_token("/admin/bingo/dc/#{@dcs[0].id}")
+    post "/admin/bingo/dc/#{@dcs[0].id}", dc_params(authenticity_token: token, name_ru: 'ЦОД 1', status: 'operational', provider: 'selectel'), admin_env
+    assert_equal 'selectel', @dcs[0].refresh.provider
+    post "/admin/bingo/dc/#{@dcs[0].id}", dc_params(authenticity_token: token, name_ru: 'ЦОД 1', status: 'operational', provider: 'nope'), admin_env
+    assert_nil @dcs[0].refresh.provider
+  end
+
   def test_robots_and_sitemap_are_the_bingos_own
     get '/robots.txt'
     assert last_response.ok?
