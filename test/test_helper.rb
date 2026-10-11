@@ -29,7 +29,6 @@ else
 end
 
 require_relative '../asxpio'
-require_relative '../bingo_web'
 require 'minitest/autorun'
 require 'rack/test'
 

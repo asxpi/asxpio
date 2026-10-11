@@ -1,6 +1,6 @@
 require 'uri'
 
-# /admin/bingo/* on asxp.io: edit the card and record incidents for BingoWeb.
+# /admin/bingo/* on asxp.io: edit the card and record incidents for the public bingo site (datacenterbingo repo).
 # Registered into AsxpioWeb, so AdminAuth (HTTP Basic) and CSRF apply.
 module BingoAdmin
   DC_TEXT = %w[name_ru name_en name_uk city_ru city_en city_uk operator provider mw mw_type status
