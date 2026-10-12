@@ -213,6 +213,19 @@ class BingoTest < Minitest::Test
     S3.instance_variable_set(:@client, nil)
   end
 
+  def test_photos_use_their_own_bucket
+    puts_to = []
+    S3.client.stub(:put_object, ->(**o) { puts_to << o[:bucket] }) do
+      ENV['BINGO_S3_BUCKET'] = 'photos-bucket'
+      Bingo::Photo.store('dc-1', JPEG)
+      ENV.delete('BINGO_S3_BUCKET')
+      Bingo::Photo.store('dc-1', JPEG)
+    end
+    assert_equal ['photos-bucket', S3.bucket], puts_to
+  ensure
+    ENV.delete('BINGO_S3_BUCKET')
+  end
+
   def test_photo_rejects_non_images
     assert_raises(Bingo::Photo::Error) { Bingo::Photo.store('dc-1', '<html>') }
   end

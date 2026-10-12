@@ -160,8 +160,8 @@ module Bingo
     end
   end
 
-  # Photos live in the app's MinIO bucket under bingo/ and are proxied by
-  # the bingo site (and /admin/bingo/p here), so the bucket stays private.
+  # Photos live under bingo/ in Photo.bucket and are proxied by the bingo
+  # site (and /admin/bingo/p here), so the bucket stays private.
   module Photo
     PREFIX    = 'bingo/'.freeze
     MAX_BYTES = 8 * 1024 * 1024
@@ -174,6 +174,10 @@ module Bingo
     class Error < StandardError; end
 
     module_function
+
+    # Own bucket in prod (datacenterbingo-photos, shared read-only with the
+    # bingo site); unset = the app bucket (dev, tests).
+    def bucket = ENV['BINGO_S3_BUCKET'].to_s.empty? ? S3.bucket : ENV['BINGO_S3_BUCKET']
 
     # Input may arrive tagged UTF-8 (aws-sdk bodies are plain StringIOs), and
     # comparing that with binary literals raises, so look at raw bytes.
@@ -193,7 +197,7 @@ module Bingo
       ext = sniff(bytes) or raise Error, 'not a JPEG, PNG or WebP image'
       bytes = strip_metadata(bytes, ext)
       key = "#{PREFIX}#{slug}-#{SecureRandom.hex(4)}.#{ext}"
-      S3.put(key, bytes, content_type: TYPES[ext])
+      S3.put(key, bytes, content_type: TYPES[ext], bucket: bucket)
       key
     end
 
@@ -207,7 +211,7 @@ module Bingo
 
     # Re-derives the variants from the stored original.
     def rebuild(dc)
-      dc.update(**build_variants(dc.photo_key, S3.get(dc.photo_key)))
+      dc.update(**build_variants(dc.photo_key, S3.get(dc.photo_key, bucket: bucket)))
     end
 
     def variant_key(key, width)
@@ -222,8 +226,8 @@ module Bingo
     def build_variants(key, bytes)
       bytes = bytes.b
       ext = sniff(bytes) or raise Error, 'not an image'
-      WIDTHS.each { |w| S3.put(variant_key(key, w), resize(bytes, ext, w), content_type: TYPES['webp']) }
-      S3.put(og_key(key), og_crop(bytes, ext), content_type: TYPES['jpg'])
+      WIDTHS.each { |w| S3.put(variant_key(key, w), resize(bytes, ext, w), content_type: TYPES['webp'], bucket: bucket) }
+      S3.put(og_key(key), og_crop(bytes, ext), content_type: TYPES['jpg'], bucket: bucket)
       { photo_variants: true, photo_og: true }
     rescue Error => e
       $logger.warn("bingo: no variants for #{key}: #{e.message}")
@@ -352,7 +356,7 @@ module Bingo
 
     def read(file)
       raise Error, 'bad name' unless file =~ FILE_RE
-      [S3.get(PREFIX + file), TYPES[Regexp.last_match(1)]]
+      [S3.get(PREFIX + file, bucket: bucket), TYPES[Regexp.last_match(1)]]
     end
   end
 

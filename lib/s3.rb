@@ -30,7 +30,7 @@ module S3
     ENV.fetch('S3_BUCKET')
   end
 
-  def put(key, bytes, content_type: 'application/pdf')
+  def put(key, bytes, content_type: 'application/pdf', bucket: self.bucket)
     client.put_object(
       bucket:       bucket,
       key:          key,
@@ -40,7 +40,7 @@ module S3
     key
   end
 
-  def get(key)
+  def get(key, bucket: self.bucket)
     client.get_object(bucket: bucket, key: key).body.read.b # body is a UTF-8 StringIO
   end
 

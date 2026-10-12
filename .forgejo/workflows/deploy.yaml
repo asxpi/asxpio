@@ -141,6 +141,7 @@ jobs:
             LTC_ADDRESS=${LTC_ADDRESS}
             CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
             BINGO_HOST=datacenterbingo.xyz
+            BINGO_S3_BUCKET=datacenterbingo-photos
             INDEXNOW_KEY=${INDEXNOW}
             EOF
             chmod 600 /opt/asxpio/.env

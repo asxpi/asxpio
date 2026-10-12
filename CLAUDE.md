@@ -132,7 +132,7 @@ The public site (datacenterbingo.xyz) lives in its own repo and container: `git.
 - Status: operational | building | planned. `mw_type` (it | connected | total | design | mva, NULL = not stated) tags the MW figure; mva swaps the unit. The public default card is operational only, and so is the dashboard tile (`Board.load('operational')`).
 - Provider: `bingo_datacenters.provider` holds a `Bingo::PROVIDERS` slug (backfilled by migration 016; new rows get it from `Bingo.guess_provider`; editable in the admin). The public site filters cards by it.
 - Ordering: `position` is dense 1..N (`Bingo.place!` inserts and shifts; `renumber!` runs after deletes). Positions 1–25 are the card; the rest are reserve. Slug is fixed at creation because it names the photo objects.
-- Photos: stored in the bucket as `bingo/<slug>-<hex>.<ext>`, with the type sniffed from magic bytes (JPEG/PNG/WebP).
+- Photos: stored in `BINGO_S3_BUCKET` (`datacenterbingo-photos`, made by the storage repo; unset = `S3_BUCKET`) as `bingo/<slug>-<hex>.<ext>`, with the type sniffed from magic bytes (JPEG/PNG/WebP).
   - Limits: 8 MB cap, and metadata is stripped (GPS!). URL import is https-only.
   - On store, ImageMagick derives `-480.webp`, `-1200.webp` and `-og.jpg` (1200×630). `photo_variants` / `photo_og` record whether that succeeded.
   - "Rebuild resized photos" re-derives the variants from the stored originals.
