@@ -58,8 +58,10 @@ module AdminAuth
       Audit.log(action: action, user: user, target: target, detail: detail, ip: client_ip)
     end
 
+    # Trailing slashes dropped: /admin/ has no route (see the before filter).
     def safe_next(target)
-      target.to_s.match?(%r{\A/admin(/[\w\-/]*)?\z}) ? target : '/admin'
+      target = target.to_s.sub(%r{(?<=.)/+\z}, '')
+      target.match?(%r{\A/admin(/[\w\-/]*)?\z}) ? target : '/admin'
     end
   end
 
@@ -68,6 +70,8 @@ module AdminAuth
 
     app.before do
       next unless admin_path?
+      # One URL per page: /admin/ and /admin/bingo/ go to the slashless route.
+      redirect request.fullpath.sub(%r{/+(?=\?|\z)}, ''), 301 if request.path_info.match?(%r{./\z})
       halt 503, 'Admin needs DATABASE_URL.' unless defined?(User)
       next if request.path_info.match?(PUBLIC)
       unless current_user

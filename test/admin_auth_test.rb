@@ -48,6 +48,20 @@ class AdminAuthTest < Minitest::Test
     assert_equal 302, last_response.status
   end
 
+  def test_trailing_slash_admin_urls
+    get '/admin/'
+    assert_equal 301, last_response.status
+    assert_match %r{/admin\z}, last_response.location
+    get '/admin/bingo/?x=1'
+    assert_match %r{/admin/bingo\?x=1\z}, last_response.location
+
+    User.create(username: 'alice', superuser: true, password: 'alice-password-1')
+    get '/admin/login?next=/admin/'
+    token = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post '/admin/login', { authenticity_token: token, username: 'alice', password: 'alice-password-1', next: '/admin/' }
+    assert_match %r{/admin\z}, last_response.location
+  end
+
   def test_wrong_password_and_unknown_user
     User.create(username: 'alice', superuser: true, password: 'alice-password-1')
     login('alice', 'nope')
