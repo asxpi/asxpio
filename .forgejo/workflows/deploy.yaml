@@ -10,6 +10,14 @@ jobs:
   # so a red suite blocks the build+deploy — Forgejo has no cross-workflow needs.
   test:
     runs-on: nix-latest
+    # Settings via env, not /etc/nix/nix.conf: in the image that is a
+    # symlink into /nix/store, which the runner's nix-store volume
+    # shadows, so it dangles once the image moves on.
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        build-users-group =
+        sandbox = false
     services:
       postgres:
         image: postgres:17-alpine
@@ -20,7 +28,6 @@ jobs:
     steps:
       - name: Prepare container for actions
         run: |
-          echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
           # node for JS actions (checkout); git-minimal is already in the image
           nix-env -iA nixpkgs.nodejs_22
 
