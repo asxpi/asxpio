@@ -38,6 +38,7 @@ if ENV['DATABASE_URL']
   require_relative 'lib/invoice_pdf'
   require_relative 'lib/invoice_stats'
   require_relative 'lib/bingo'
+  require_relative 'lib/bingo_monitor'
   Bingo.seed!
   require_relative 'lib/user'
   require_relative 'lib/audit'

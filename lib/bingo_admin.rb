@@ -226,6 +226,46 @@ module BingoAdmin
       redirect '/admin/bingo'
     end
 
+    # Reachability targets for the public status page (Bingo::Monitor).
+    app.get '/admin/bingo/monitor' do
+      @page_title = 'Monitor · bingo admin'
+      @noindex    = true
+      @targets    = Bingo::Monitor::Target.eager(:datacenter).all
+                                          .sort_by { |t| [t.datacenter&.position || 0, t.host, t.port] }
+      @unmonitored = Bingo::Datacenter.where(status: 'operational')
+                                      .exclude(id: Bingo::Monitor::Target.exclude(datacenter_id: nil).select(:datacenter_id))
+                                      .order(:position).all
+      @last_round = DB.connection[:bingo_monitor_buckets].order(Sequel.desc(:bucket_at)).first
+      @flash      = session.delete(:bingo_flash)
+      erb :'admin/bingo/monitor'
+    end
+
+    app.post '/admin/bingo/monitor' do
+      attrs, errors = Bingo::Monitor.parse(params[:targets])
+      if errors.empty?
+        attrs.each { |a| Bingo::Monitor::Target.create(a) }
+        audit!('bingo.monitor_add', nil, "#{attrs.size} target(s)")
+        session[:bingo_flash] = "Added #{attrs.size} target(s)."
+      else
+        session[:bingo_flash] = "Nothing added: #{errors.join('; ')}"
+      end
+      redirect '/admin/bingo/monitor'
+    end
+
+    app.post '/admin/bingo/monitor/:id/toggle' do
+      t = Bingo::Monitor::Target[params[:id].to_i] or halt 404
+      t.update(active: !t.active)
+      audit!('bingo.monitor_toggle', t.endpoint, t.active ? 'on' : 'off')
+      redirect '/admin/bingo/monitor'
+    end
+
+    app.post '/admin/bingo/monitor/:id/delete' do
+      t = Bingo::Monitor::Target[params[:id].to_i] or halt 404
+      t.destroy
+      audit!('bingo.monitor_delete', t.endpoint, t.datacenter&.slug)
+      redirect '/admin/bingo/monitor'
+    end
+
     app.post '/admin/bingo/incidents/:id/delete' do
       inc = Bingo::Incident[params[:id].to_i]
       inc&.destroy # hook bumps the datacenter's updated_at

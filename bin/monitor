@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+# Reachability worker for datacenterbingo's status page (Bingo::Monitor).
+# Runs as its own container from the asxpio image; the web container owns
+# migrations, so this waits until the monitor tables exist.
+require 'logger'
+require 'fileutils'
+
+$root   = File.expand_path('..', __dir__)
+$logger = Logger.new($stdout)
+$env    = ENV.fetch('RACK_ENV', 'development')
+$stdout.sync = true
+
+require_relative '../lib/db'
+DB.connect!
+until DB.connection.table_exists?(:bingo_monitor_buckets)
+  $logger.info('monitor: waiting for migrations')
+  sleep 10
+end
+require_relative '../lib/bingo'
+require_relative '../lib/bingo_monitor'
+
+HEARTBEAT = ENV.fetch('MONITOR_HEARTBEAT', '/tmp/monitor.heartbeat')
+pruned_at = nil
+
+loop do
+  started = Time.now.utc
+  begin
+    targets = Bingo::Monitor::Target.where(active: true).all
+    results = Bingo::Monitor.round(targets)
+    Bingo::Monitor.record!(results, at: started)
+    if pruned_at.nil? || started - pruned_at > 3600
+      Bingo::Monitor.prune!(started)
+      pruned_at = started
+    end
+    FileUtils.touch(HEARTBEAT)
+    up = results.count { |_, ms| ms }
+    $logger.info("monitor: #{up}/#{results.size} answered in #{(Time.now.utc - started).round(1)}s")
+  rescue StandardError => e # a DB blip must not end the worker
+    $logger.error("monitor: #{e.class}: #{e.message}")
+  end
+  sleep [Bingo::Monitor::INTERVAL - (Time.now.utc - started), 1].max
+end

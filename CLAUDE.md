@@ -139,6 +139,7 @@ The public site (datacenterbingo.xyz) lives in its own repo and container: `git.
   - Served publicly by the bingo site at `/p/:file`; previewed here at `/admin/bingo/p/:file`.
 - IndexNow (`Bingo::IndexNow`): admin actions ping api.indexnow.org with the changed URLs. The key comes from `INDEXNOW` → `INDEXNOW_KEY`; the bingo site has the same key and serves `/<key>.txt`. Unset = no-op.
 - Photos are third-party (operator sites, Habr, Wikimedia Commons CC BY-SA) — keep `photo_credit` filled; renders/illustrations are marked as such.
+- Monitor (`lib/bingo_monitor.rb`, `bin/monitor`, migration 017): the `asxpio-monitor` container (same image, compose healthcheck on a heartbeat file) opens one TCP connection per minute to each active `bingo_monitor_targets` row; a handshake or a refusal counts as answered. Results fold into 5-minute `bingo_monitor_samples` per datacenter (upserts) and `bingo_monitor_buckets` (rounds + control hosts, i.e. targets with `datacenter_id` NULL); kept 30 days. Targets are managed at `/admin/bingo/monitor` (bulk lines `slug host[:port] source_url label`, slug `_control` for controls). Only add hosts a public source ties to that one site. The public status page in datacenterbingo reads these tables; migration 017 grants them to the `bingo` role.
 - No street addresses or coordinates on the page — city level only.
 
 ## Operational notes
