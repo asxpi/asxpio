@@ -476,6 +476,7 @@ fieldset.plain { border: 0; margin: 0; padding: 0; min-width: 0; }
 }
 .invoice-actions .link-button { margin: 0; }
 .cancel-form { display: flex; gap: 8px; flex: 1 1 320px; }
+.paid-form { display: flex; gap: 8px; align-items: center; }
 .link-button.danger:hover { color: var(--danger); border-color: var(--danger-border); }
 .badge-paid {
     color: var(--paid);

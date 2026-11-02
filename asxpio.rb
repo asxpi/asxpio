@@ -104,6 +104,18 @@ class AsxpioWeb < Sinatra::Base
     def admin_invoice!(uuid)
       visible_invoices.first(uuid: uuid) or halt 404
     end
+
+    # Payment time from a YYYY-MM-DD form value: blank or today → now,
+    # an earlier day → that day 12:00 UTC (noon keeps it on the same date
+    # in any timezone the stats might be read in). Future dates are refused.
+    def paid_time(value)
+      value = value.to_s.strip
+      return Time.now.utc if value.empty?
+      date = Date.iso8601(value) rescue halt(422, 'Invalid payment date.')
+      today = Time.now.utc.to_date
+      halt 422, 'Payment date is in the future.' if date > today
+      date == today ? Time.now.utc : Time.utc(date.year, date.month, date.day, 12)
+    end
   end
 
   before do
@@ -368,12 +380,26 @@ class AsxpioWeb < Sinatra::Base
     erb :'admin/invoices/show'
   end
 
+  # Toggles paid. An optional `paid_on` (YYYY-MM-DD) backdates the payment;
+  # blank or today means now.
   post '/admin/invoices/:uuid/paid' do
     invoice = admin_invoice!(params[:uuid])
     halt 422, 'Cancelled invoices cannot be marked paid; reinstate it first.' if invoice.cancelled?
-    invoice.paid_at = invoice.paid? ? nil : Time.now.utc
+    invoice.paid_at = invoice.paid? ? nil : paid_time(params[:paid_on])
     invoice.save_changes
-    audit!(invoice.paid? ? 'invoice.paid' : 'invoice.unpaid', invoice.number)
+    audit!(invoice.paid? ? 'invoice.paid' : 'invoice.unpaid', invoice.number,
+           invoice.paid? ? invoice.paid_at.strftime('%Y-%m-%d') : nil)
+    redirect "/admin/invoices/#{invoice.uuid}"
+  end
+
+  # Corrects the payment date of an already-paid invoice.
+  post '/admin/invoices/:uuid/paid-date' do
+    invoice = admin_invoice!(params[:uuid])
+    halt 422, 'Invoice is not paid.' unless invoice.paid?
+    halt 422, 'Pick a payment date.' if params[:paid_on].to_s.strip.empty?
+    old = invoice.paid_at.utc.strftime('%Y-%m-%d')
+    invoice.update(paid_at: paid_time(params[:paid_on]))
+    audit!('invoice.paid_date', invoice.number, "#{old} → #{invoice.paid_at.strftime('%Y-%m-%d')}")
     redirect "/admin/invoices/#{invoice.uuid}"
   end
 

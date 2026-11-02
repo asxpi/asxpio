@@ -44,6 +44,32 @@ class InvoiceCancelTest < Minitest::Test
     assert_equal 'pending', @inv.status
   end
 
+  def test_paid_date_can_be_backdated_and_changed
+    admin_login!
+    post "/admin/invoices/#{@inv.uuid}/paid", { authenticity_token: token, paid_on: '2026-01-15' }
+    assert_equal 302, last_response.status
+    assert_equal Time.utc(2026, 1, 15, 12), @inv.refresh.paid_at
+
+    post "/admin/invoices/#{@inv.uuid}/paid-date", { authenticity_token: token, paid_on: '2026-02-01' }
+    assert_equal 302, last_response.status
+    assert_equal Date.new(2026, 2, 1), @inv.refresh.paid_at.utc.to_date
+
+    future = (Date.today + 3).iso8601
+    post "/admin/invoices/#{@inv.uuid}/paid-date", { authenticity_token: token, paid_on: future }
+    assert_equal 422, last_response.status
+    post "/admin/invoices/#{@inv.uuid}/paid-date", { authenticity_token: token, paid_on: 'nope' }
+    assert_equal 422, last_response.status
+    assert_equal Date.new(2026, 2, 1), @inv.refresh.paid_at.utc.to_date
+
+    get "/admin/invoices/#{@inv.uuid}"
+    assert_includes last_response.body, 'value="2026-02-01"'
+
+    post "/admin/invoices/#{@inv.uuid}/paid", { authenticity_token: token }
+    refute @inv.refresh.paid?
+    post "/admin/invoices/#{@inv.uuid}/paid", { authenticity_token: token, paid_on: '' }
+    assert_in_delta Time.now.utc, @inv.refresh.paid_at, 60
+  end
+
   # Every state of the admin invoice page renders (pending, paid,
   # cancelled, hidden), for a superuser and for a read-only user.
   def test_admin_invoice_page_renders_in_every_state

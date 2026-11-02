@@ -43,8 +43,19 @@
     <% if can?('invoices', 'write') %>
     <div class="invoice-actions">
         <% unless @invoice.cancelled? %>
-        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid">
+        <% today = Time.now.utc.to_date.iso8601 %>
+        <% if @invoice.paid? %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid-date" class="invoice-form paid-form">
             <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <input type="date" name="paid_on" required max="<%= today %>" value="<%= @invoice.paid_at.utc.to_date.iso8601 %>" aria-label="Payment date" />
+            <button type="submit" class="link-button">Change paid date</button>
+        </form>
+        <% end %>
+        <form method="post" action="/admin/invoices/<%= @invoice.uuid %>/paid" class="invoice-form paid-form">
+            <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+            <% unless @invoice.paid? %>
+            <input type="date" name="paid_on" max="<%= today %>" value="<%= today %>" aria-label="Payment date" />
+            <% end %>
             <button type="submit" class="link-button"><%= @invoice.paid? ? 'Mark unpaid' : 'Mark paid' %></button>
         </form>
         <% end %>
