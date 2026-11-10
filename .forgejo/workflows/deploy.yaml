@@ -127,6 +127,21 @@ jobs:
           script: |
             umask 077
             mkdir -p /opt/asxpio
+            # Garage only takes its own key format (id: GK + 24 hex digits,
+            # secret: 64 hex digits). Hash the MinIO-era secrets into it, as
+            # storage's init/garage-bootstrap.sh does; a pair already in
+            # Garage's format is used as it is.
+            garage_key_id() {
+              if printf '%s' "$1" | grep -Eq '^GK[0-9a-f]{24}$'; then printf '%s' "$1"
+              else printf 'GK%s' "$(printf '%s' "$1" | sha256sum | cut -c1-24)"; fi
+            }
+            garage_secret() {
+              if printf '%s' "$1" | grep -Eq '^[0-9a-f]{64}$'; then printf '%s' "$1"
+              else printf '%s' "$1" | sha256sum | cut -c1-64; fi
+            }
+            S3_ACCESS_KEY="$(garage_key_id "${ASXPIO_S3_ACCESS_KEY}")"
+            S3_SECRET_KEY="$(garage_secret "${ASXPIO_S3_SECRET_KEY}")"
+
             cat > /opt/asxpio/.env <<EOF
             RACK_ENV=production
             SESSION_SECRET=${SESSION_SECRET}
@@ -139,12 +154,12 @@ jobs:
             ADMIN_USER=${ADMIN_USER}
             ADMIN_PASSWORD=${ADMIN_PASSWORD}
             DATABASE_URL=postgres://asxpio:${ASXPIO_DB_PASSWORD}@postgres:5432/asxpio
-            S3_ENDPOINT=http://minio:9000
+            S3_ENDPOINT=http://garage:3900
             S3_PUBLIC_ENDPOINT=https://s3.asxp.io
             S3_REGION=us-east-1
             S3_BUCKET=asxpio-invoices
-            S3_ACCESS_KEY=${ASXPIO_S3_ACCESS_KEY}
-            S3_SECRET_KEY=${ASXPIO_S3_SECRET_KEY}
+            S3_ACCESS_KEY=${S3_ACCESS_KEY}
+            S3_SECRET_KEY=${S3_SECRET_KEY}
             LTC_ADDRESS=${LTC_ADDRESS}
             CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
             BINGO_HOST=datacenterbingo.xyz
