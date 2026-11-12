@@ -164,6 +164,8 @@ jobs:
             CRYPTO_ADDRESSES=${CRYPTO_ADDRESSES}
             BINGO_HOST=datacenterbingo.xyz
             BINGO_S3_BUCKET=datacenterbingo-photos
+            PUBLIC_S3_BUCKET=public
+            PUBLIC_BASE_URL=https://s3.asxp.io/public
             INDEXNOW_KEY=${INDEXNOW}
             EOF
             chmod 600 /opt/asxpio/.env

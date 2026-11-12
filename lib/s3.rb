@@ -30,14 +30,19 @@ module S3
     ENV.fetch('S3_BUCKET')
   end
 
-  def put(key, bytes, content_type: 'application/pdf', bucket: self.bucket)
+  def put(key, bytes, content_type: 'application/pdf', bucket: self.bucket, **headers)
     client.put_object(
       bucket:       bucket,
       key:          key,
       body:         bytes,
-      content_type: content_type
+      content_type: content_type,
+      **headers # content_disposition, cache_control
     )
     key
+  end
+
+  def delete(key, bucket: self.bucket)
+    client.delete_object(bucket: bucket, key: key)
   end
 
   def get(key, bucket: self.bucket)

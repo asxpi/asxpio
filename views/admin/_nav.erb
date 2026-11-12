@@ -1,5 +1,5 @@
 <nav class="admin-nav">
-    <% [['/admin', 'dashboard', nil], ['/admin/invoices', 'invoices', 'invoices'], ['/admin/bingo', 'bingo', 'bingo'], ['/admin/users', 'users', 'users']].each do |href, label, area| %>
+    <% [['/admin', 'dashboard', nil], ['/admin/invoices', 'invoices', 'invoices'], ['/admin/bingo', 'bingo', 'bingo'], ['/admin/files', 'files', 'files'], ['/admin/users', 'users', 'users']].each do |href, label, area| %>
         <% next if area && !can?(area, 'read') %>
         <a href="<%= href %>" class="<%= 'active' if href == '/admin' ? request.path == '/admin' : request.path.start_with?(href) %>"><%= label %></a>
     <% end %>

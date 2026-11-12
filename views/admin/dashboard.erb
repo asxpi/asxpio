@@ -50,7 +50,31 @@
         <p><a href="/admin/bingo">manage</a><% if bingo_public_url %> · <a href="<%= bingo_public_url %>" target="_blank" rel="noopener">public card ↗</a><% end %></p>
     </section>
     <% end %>
-    <% unless @inv || @bingo %>
+    <% if @files %>
+    <section class="section dash-tile">
+        <h2><a href="/admin/files">Files</a></h2>
+        <div class="stats">
+            <div><b><%= @files[:count] %></b><span>published</span></div>
+            <div><b><%= fmt_bytes(@files[:bytes]) %></b><span>used</span></div>
+            <div><b><%= fmt_bytes(PublicFile.quota_bytes) %></b><span>quota</span></div>
+        </div>
+        <% if @files[:recent].any? %>
+            <table class="invoice-list">
+                <tbody>
+                    <% @files[:recent].each do |f| %>
+                        <tr>
+                            <td class="mono"><a href="/admin/files/<%= f.id %>"><%= f.filename %></a></td>
+                            <td class="num mono"><%= fmt_bytes(f.size) %></td>
+                            <td class="mono"><%= f.updated_at.strftime('%Y-%m-%d') %></td>
+                        </tr>
+                    <% end %>
+                </tbody>
+            </table>
+        <% end %>
+        <p><a href="/admin/files">manage</a></p>
+    </section>
+    <% end %>
+    <% unless @inv || @bingo || @files %>
         <section class="section"><p>No areas are assigned to your account yet. Ask an administrator for access.</p></section>
     <% end %>
 </div>

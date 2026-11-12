@@ -9,6 +9,7 @@ module AdminACL
   RULES = [
     [%r{\A/admin/(invoices|gel-rate|crypto-rate)(/|\z)}, 'invoices'],
     [%r{\A/admin/bingo(/|\z)},                           'bingo'],
+    [%r{\A/admin/files(/|\z)},                           'files'],
     [%r{\A/admin/(users|audit)(/|\z)},                   'users'],
   ].freeze
 

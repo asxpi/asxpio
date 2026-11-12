@@ -37,7 +37,7 @@ Banking details and registration number are deliberately not on the public page 
 - In-memory `RateLimit` (5 req/hour/IP) — see `lib/rate_limit.rb`
 - `Rack::Protection::AuthenticityToken` for CSRF (uses session-stored token)
 - `AdminAuth` (`lib/admin_auth.rb`, a Sinatra extension): session login at `/admin/login` against the `users` table (`lib/user.rb`, scrypt via OpenSSL, no gem). Session holds user id + `session_version` (bump = logged out everywhere). `ADMIN_USER`/`ADMIN_PASSWORD` bootstrap the first superuser on an empty table and otherwise work only while no active superuser exists (recovery; it re-creates that superuser). Login is rate-limited per IP (`LOGIN_RATE_LIMIT`, default 10/15 min).
-- Permissions (`lib/admin_acl.rb`): areas `invoices`, `bingo`, `users` × independent flags read/write/delete in `user_permissions` (read + delete without write is valid); superusers bypass. GET → read (…/new, …/duplicate → write), POST …/delete|…/disable → delete, other POST → write. Unmapped /admin paths are superuser-only, and `test/admin_acl_test.rb` fails if a registered admin route isn't mapped — add new admin routes to `AdminACL::RULES`. Views hide forms via `can?(area, perm)`; the server check is the real gate.
+- Permissions (`lib/admin_acl.rb`): areas `invoices`, `bingo`, `files`, `users` × independent flags read/write/delete in `user_permissions` (read + delete without write is valid); superusers bypass. GET → read (…/new, …/duplicate → write), POST …/delete|…/disable → delete, other POST → write. Unmapped /admin paths are superuser-only, and `test/admin_acl_test.rb` fails if a registered admin route isn't mapped — add new admin routes to `AdminACL::RULES`. Views hide forms via `can?(area, perm)`; the server check is the real gate.
 - Users UI (`lib/users_admin.rb`): `/admin/users` create/edit/disable/delete (superusers can also rename; sessions key on id, the audit log keeps old names), permission grid (you can only grant flags you hold; flags you can't grant keep their value; only superusers touch superuser accounts; no self-lockout; last active superuser can't be deleted). New users get a one-time invite link (48 h) by email via `Mailer.account_link`, also shown once to the admin. `/admin/reset` emails a 1 h reset link (same answer for unknown accounts). Tokens are stored as SHA-256 only (`user_tokens`). `/admin/audit` lists `audit_log` (logins, user changes, bingo and invoice actions) — call `audit!(action, target, detail)` in new admin actions.
 - Timestamps: `Sequel.default_timezone = :utc` (lib/db.rb); always write `Time.now.utc`.
 - Honeypot field named `website` for spam
@@ -142,6 +142,17 @@ The public site (datacenterbingo.xyz) lives in its own repo and container: `git.
 - Monitor (`lib/bingo_monitor.rb`, `bin/monitor`, migration 017): the `asxpio-monitor` container (same image, compose healthcheck on a heartbeat file) opens one TCP connection per minute to each active `bingo_monitor_targets` row; a handshake or a refusal counts as answered. Results fold into 5-minute `bingo_monitor_samples` per datacenter (upserts) and `bingo_monitor_buckets` (rounds + control hosts, i.e. targets with `datacenter_id` NULL); kept 30 days. Targets are managed at `/admin/bingo/monitor` (bulk lines `slug host[:port] source_url label`, slug `_control` for controls). Only add hosts a public source ties to that one site. The public status page in datacenterbingo reads these tables; migration 017 grants them to the `bingo` role.
 - No street addresses or coordinates on the page — city level only.
 
+## Public files (`/admin/files`)
+
+Files published for anyone to fetch: `lib/files_admin.rb`, `lib/public_file.rb`, migration 018, ACL area `files`.
+
+- Objects go to `PUBLIC_S3_BUCKET` (`public`, a Garage website made by the storage repo; unset = `S3_BUCKET`) and are read at `PUBLIC_BASE_URL/<key>` (`https://s3.asxp.io/public/…`), not through this app. Both are set in `deploy.yaml`.
+- The app's key is write-only there (put, delete; no read, no list), so `public_files` is the only record of the objects. Objects uploaded some other way don't show up.
+- Key: `<8 hex>/<sanitised ASCII filename>`, fixed for the life of the file. "Replace" re-uploads under the same key and must keep the extension.
+- The extension decides how the object is served. `PublicFile::INLINE` types (images, PDF, plain text, audio, video) get their content type and `inline`; everything else, HTML and SVG included, is `application/octet-stream` with `Content-Disposition: attachment`. `s3.asxp.io` is same-site with the admin, so don't add a type that can run script.
+- JPEG/PNG/WebP metadata is stripped (`Bingo::Photo.strip_metadata`) unless the uploader ticks "keep".
+- Limits: `PUBLIC_MAX_MB` per file (50) and `PUBLIC_QUOTA_MB` in total (2048). Uploads are read into memory.
+
 ## Operational notes
 
 - `client_ip` reads `X-Forwarded-For` first (Traefik sets it), falling back to `X-Real-IP` and `REMOTE_ADDR`.
@@ -191,7 +202,7 @@ All colors in `public/style.css` are CSS custom properties on `:root` (design to
 | `ADMIN_USER`             | HTTP Basic username for `/admin/*`                                       | Change secret + push.                                                                            |
 | `ADMIN_PASSWORD`         | HTTP Basic password for `/admin/*`                                       | Generate fresh, update secret + push. **Forgejo doesn't show old values.** Save to password manager. |
 | `ASXPIO_DB_PASSWORD`     | Password for the `asxpio` Postgres role                                  | Update on **both** repos to the same value. Push storage first (re-provisions role), then asxpio. |
-| `ASXPIO_S3_ACCESS_KEY`   | S3 key id (Garage), read-write on `asxpio-invoices` and the bingo photos | Same dual-repo update. Push storage first.                                                       |
+| `ASXPIO_S3_ACCESS_KEY`   | S3 key id (Garage), read-write on `asxpio-invoices` and the bingo photos, write-only on `public` | Same dual-repo update. Push storage first.                                                       |
 | `ASXPIO_S3_SECRET_KEY`   | Matching S3 secret                                                       | Same.                                                                                            |
 | `CRYPTO_ADDRESSES`       | **Seed only.** Imported into `payout_addresses` on the first boot with an empty table; afterwards edited in `/admin/invoices/payout-addresses`. | Delete the secret (and its line in deploy.yaml) once the admin page shows the imported addresses. |
 | `INDEXNOW`               | IndexNow key for the bingo (→ `INDEXNOW_KEY`, served at `/<key>.txt`) | New random key (8–128 chars `A-Za-z0-9-`) → update secret → push. The old key file stops being served. |

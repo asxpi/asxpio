@@ -24,6 +24,7 @@ require_relative 'lib/db'
 require_relative 'lib/admin_auth'
 require_relative 'lib/s3'
 require_relative 'lib/bingo_admin'
+require_relative 'lib/files_admin'
 require_relative 'lib/users_admin'
 
 # Invoice model needs a live Sequel connection at class-definition time.
@@ -39,6 +40,7 @@ if ENV['DATABASE_URL']
   require_relative 'lib/invoice_stats'
   require_relative 'lib/bingo'
   require_relative 'lib/bingo_monitor'
+  require_relative 'lib/public_file'
   Bingo.seed!
   require_relative 'lib/user'
   require_relative 'lib/audit'
@@ -73,6 +75,7 @@ class AsxpioWeb < Sinatra::Base
   use Rack::Protection::AuthenticityToken
   register AdminAuth
   register BingoAdmin
+  register FilesAdmin
   register UsersAdmin
 
   Mailer.configure!
@@ -184,6 +187,10 @@ class AsxpioWeb < Sinatra::Base
         last_incident: board.incidents.first,
         no_photo:      board.cells.reject(&:photo_key)
       }
+    end
+    if can?('files', 'read')
+      @files = { count: PublicFile.count, bytes: PublicFile.used_bytes,
+                 recent: PublicFile.order(Sequel.desc(:updated_at)).limit(5).all }
     end
     erb :'admin/dashboard'
   end

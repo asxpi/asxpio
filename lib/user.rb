@@ -8,7 +8,7 @@ require 'uri'
 # Admin accounts. Passwords are scrypt hashes from Ruby's OpenSSL (no gem):
 # "scrypt$<logN>$<r>$<p>$<salt>$<hash>", base64 salt/hash.
 class User < Sequel::Model(:users)
-  AREAS    = %w[invoices bingo users].freeze
+  AREAS    = %w[invoices bingo files users].freeze
   PERMS    = %w[read write delete].freeze
   NAME_RE  = /\A[a-z0-9][a-z0-9_.@-]{1,63}\z/
   MIN_PASS = 12

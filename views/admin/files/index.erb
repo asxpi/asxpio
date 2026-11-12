@@ -1,0 +1,51 @@
+<%== erb :'admin/_nav', layout: false %>
+<div class="header">
+    <h1>Files</h1>
+    <p class="tagline">published at <span class="mono"><%= PublicFile.base_url %>/…</span> · <%= @files.size %> file(s), <%= fmt_bytes(PublicFile.used_bytes) %> of <%= fmt_bytes(PublicFile.quota_bytes) %></p>
+</div>
+
+<% if @flash %><div class="form-error-base"><div><%= @flash %></div></div><% end %>
+
+<% if can?('files', 'write') %>
+<section class="section">
+    <h2>Publish</h2>
+    <form class="invoice-form" method="post" action="/admin/files" enctype="multipart/form-data">
+        <input type="hidden" name="authenticity_token" value="<%= csrf_token %>" />
+        <div class="field"><label for="files">Files <span class="optional">(≤ <%= fmt_bytes(PublicFile.max_bytes) %> each)</span></label><input type="file" id="files" name="files[]" multiple required /></div>
+        <div class="field"><label for="note">Note <span class="optional">(only shown here)</span></label><input type="text" id="note" name="note" maxlength="500" /></div>
+        <p><label><input type="checkbox" name="keep_metadata" value="1" /> keep image metadata <span class="optional">(Exif, GPS; stripped by default)</span></label></p>
+        <p class="optional">Anyone with the link can fetch the file. Images, PDF, plain text, audio and video open in the browser; everything else is served as a download.</p>
+        <button type="submit" class="download-button">Publish</button>
+    </form>
+</section>
+<% end %>
+
+<section class="section">
+    <% if @files.empty? %>
+        <p>Nothing published yet.</p>
+    <% else %>
+        <table class="invoice-list">
+            <thead><tr><th>File</th><th>Note</th><th class="num">Size</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody>
+                <% @files.each do |f| %>
+                    <tr>
+                        <td class="mono"><a href="<%= f.url %>" target="_blank" rel="noopener"><%= f.filename %></a></td>
+                        <td><%= f.note %></td>
+                        <td class="num mono"><%= fmt_bytes(f.size) %></td>
+                        <td><span class="mono"><%= f.updated_at.strftime('%Y-%m-%d') %></span> <%= f.uploaded_by %></td>
+                        <td class="actions">
+                            <button type="button" class="link-button" data-copy="<%= f.url %>">copy link</button>
+                            · <a href="/admin/files/<%= f.id %>"><%= can?('files', 'write') ? 'edit' : 'view' %></a>
+                        </td>
+                    </tr>
+                <% end %>
+            </tbody>
+        </table>
+    <% end %>
+</section>
+<script>
+document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(b.dataset.copy);
+    b.textContent = 'copied';
+}));
+</script>
