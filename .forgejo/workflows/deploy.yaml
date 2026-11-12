@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Deploy docker-compose.yml
-        uses: easingthemes/ssh-deploy@v5.1.2
+        uses: easingthemes/ssh-deploy@v6.0.3
         with:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.DEPLOY_IP }}
