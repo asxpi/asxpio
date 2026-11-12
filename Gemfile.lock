@@ -80,7 +80,7 @@ GEM
       prawn (>= 1.3.0, < 3.0.0)
     puma (6.6.1)
       nio4r (~> 2.0)
-    rack (3.2.6)
+    rack (3.2.8)
     rack-protection (4.2.1)
       base64 (>= 0.1.0)
       logger (>= 1.6.0)
