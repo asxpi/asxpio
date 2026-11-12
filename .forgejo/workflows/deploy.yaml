@@ -20,7 +20,7 @@ jobs:
         sandbox = false
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17.12-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -32,10 +32,10 @@ jobs:
           nix-env -iA nixpkgs.nodejs_22
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Cache gems
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: .gems
           key: gems-${{ hashFiles('Gemfile.lock') }}
@@ -58,7 +58,7 @@ jobs:
     runs-on: arch-latest
     needs: test
     container:
-      image: gcr.io/kaniko-project/executor:debug
+      image: gcr.io/kaniko-project/executor:v1.24.0-debug
     outputs:
       image_tag: ${{ steps.build_image.outputs.image_tag }}
     steps:
@@ -94,7 +94,7 @@ jobs:
           pacman -Syu --noconfirm nodejs openssh rsync
 
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Deploy docker-compose.yml
         uses: easingthemes/ssh-deploy@v6.0.3
