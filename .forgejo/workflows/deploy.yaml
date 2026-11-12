@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy docker-compose.yml
-        uses: easingthemes/ssh-deploy@v5.1.0
+        uses: easingthemes/ssh-deploy@v5.1.2
         with:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.DEPLOY_IP }}
@@ -106,7 +106,7 @@ jobs:
           TARGET: "/opt/asxpio/"
 
       - name: Deploy .env from secrets
-        uses: appleboy/ssh-action@v1.2.3
+        uses: appleboy/ssh-action@v1.2.5
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
@@ -171,7 +171,7 @@ jobs:
             chmod 600 /opt/asxpio/.env
 
       - name: Deploy and update container
-        uses: appleboy/ssh-action@v1.2.3
+        uses: appleboy/ssh-action@v1.2.5
         env:
           NEW_IMAGE: ${{ needs.build.outputs.image_tag }}
         with:
