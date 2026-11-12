@@ -3,7 +3,7 @@ ruby '>= 3.1'
 
 gem 'sinatra',         '~> 4.2'
 gem 'sinatra-contrib', '~> 4.2'
-gem 'puma',            '~> 6.6'
+gem 'puma',            '~> 8.0'
 gem 'rack',            '~> 3.2'
 gem 'rack-protection', '~> 4.2'
 gem 'rack-session',    '~> 2.1'
