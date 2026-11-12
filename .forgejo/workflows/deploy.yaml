@@ -67,17 +67,17 @@ jobs:
         run: |
           # Tags
           SHORT_SHA=${GITHUB_SHA::8}
-          IMAGE_BASE=${{ secrets.FORGEJO_REGISTRY }}/${{ secrets.FORGEJO_USER }}/asxpio
+          IMAGE_BASE=git.czsk.it/asxpi/asxpio
           IMAGE_TAG=${IMAGE_BASE}:${SHORT_SHA}
           IMAGE_LATEST=${IMAGE_BASE}:latest
 
           # Auth Conf
           mkdir -p /kaniko/.docker
-          echo "{\"auths\":{\"${{ secrets.FORGEJO_REGISTRY }}\":{\"auth\":\"$(echo -n ${{ secrets.FORGEJO_USER }}:${{ secrets.FJ_TOKEN }} | base64)\"}}}" > /kaniko/.docker/config.json
+          echo "{\"auths\":{\"git.czsk.it\":{\"auth\":\"$(echo -n asxpi:${{ secrets.FJ_TOKEN }} | base64)\"}}}" > /kaniko/.docker/config.json
 
           # Build & push
           /kaniko/executor \
-            --context=git://${{ secrets.FORGEJO_REGISTRY }}/${{ github.repository }}.git \
+            --context=git://git.czsk.it/${{ github.repository }}.git \
             --git=branch=${{ github.ref_name }} \
             --destination=$IMAGE_TAG \
             --destination=$IMAGE_LATEST
