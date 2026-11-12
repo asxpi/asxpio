@@ -13,7 +13,7 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [
-          pkgs.ruby_3_4
+          pkgs.ruby_4_0
           pkgs.bundler
           pkgs.openssl
           pkgs.zlib

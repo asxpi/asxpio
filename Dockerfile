@@ -1,4 +1,4 @@
-FROM ruby:3.4.12-slim-bookworm
+FROM ruby:4.0.9-slim-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -17,7 +17,8 @@ ENV PATH="${GEM_HOME}/bin:${PATH}"
 
 COPY --chown=asxpio Gemfile Gemfile.lock* ./
 ENV BUNDLE_FROZEN=true
-RUN bundle install --without development:test
+ENV BUNDLE_WITHOUT=development:test
+RUN bundle install
 
 COPY --chown=asxpio . .
 
