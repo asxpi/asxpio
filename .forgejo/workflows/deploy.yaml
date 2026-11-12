@@ -32,7 +32,7 @@ jobs:
           nix-env -iA nixpkgs.nodejs_22
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache gems
         uses: actions/cache@v4
@@ -94,7 +94,7 @@ jobs:
           pacman -Syu --noconfirm nodejs openssh rsync
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Deploy docker-compose.yml
         uses: easingthemes/ssh-deploy@v5.1.0
