@@ -133,6 +133,68 @@ class AdminAuthTest < Minitest::Test
     assert_equal '/admin', URI(last_response.location).path
   end
 
+  def with_superuser_host(host = 'admin.example.org')
+    old = ENV['SUPERUSER_HOST']
+    ENV['SUPERUSER_HOST'] = host
+    yield
+  ensure
+    ENV['SUPERUSER_HOST'] = old
+  end
+
+  def login_at(base, username, password, extra = {})
+    get "#{base}/admin/login"
+    token = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post "#{base}/admin/login", { authenticity_token: token, username: username, password: password }, extra
+  end
+
+  def test_superuser_login_only_on_superuser_host
+    User.create(username: 'root', superuser: true, password: 'root-password-1')
+    User.create(username: 'staff', password: 'staff-password-1')
+    with_superuser_host do
+      login_at('http://example.org', 'root', 'root-password-1')
+      assert_equal 401, last_response.status
+      assert_includes last_response.body, 'Wrong username or password.'
+
+      # A forged X-Forwarded-Host does not count
+      login_at('http://example.org', 'root', 'root-password-1', 'HTTP_X_FORWARDED_HOST' => 'admin.example.org')
+      assert_equal 401, last_response.status
+
+      login_at('http://example.org', 'staff', 'staff-password-1')
+      assert_equal 302, last_response.status
+
+      login_at('http://admin.example.org', 'root', 'root-password-1')
+      assert_equal 302, last_response.status
+      get 'http://admin.example.org/admin'
+      assert last_response.ok?
+    end
+  end
+
+  def test_superuser_session_ignored_off_host
+    User.create(username: 'root', superuser: true, password: 'root-password-1')
+    login('root', 'root-password-1') # no restriction yet
+    get '/admin'
+    assert last_response.ok?
+    with_superuser_host do
+      get '/admin'
+      assert_equal 302, last_response.status
+      assert_match %r{/admin/login}, last_response.location
+    end
+  end
+
+  def test_emergency_login_only_on_superuser_host
+    old = [ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD']]
+    ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD'] = 'rescue', 'rescue-password-1'
+    with_superuser_host do
+      login_at('http://example.org', 'rescue', 'rescue-password-1')
+      assert_equal 401, last_response.status
+      assert_nil User[username: 'rescue']
+      login_at('http://admin.example.org', 'rescue', 'rescue-password-1')
+      assert_equal 302, last_response.status
+    end
+  ensure
+    ENV['ADMIN_USER'], ENV['ADMIN_PASSWORD'] = old
+  end
+
   def test_login_rate_limited
     AdminAuth.login_limit = RateLimit.new(limit: 2, window: 900)
     3.times { login('x', 'y') }

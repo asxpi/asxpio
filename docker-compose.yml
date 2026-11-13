@@ -18,6 +18,14 @@ services:
       - "traefik.http.routers.asxpio.tls.certresolver=letsencrypt"
       - "traefik.http.routers.asxpio.service=asxpio"
       - "traefik.http.services.asxpio.loadbalancer.server.port=3000"
+      # Superuser logins only work here (SUPERUSER_HOST): WireGuard + VPC.
+      - "traefik.http.routers.asxpio-admin.rule=Host(`admin.asxp.io`)"
+      - "traefik.http.routers.asxpio-admin.entrypoints=websecure"
+      - "traefik.http.routers.asxpio-admin.tls=true"
+      - "traefik.http.routers.asxpio-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.asxpio-admin.service=asxpio"
+      - "traefik.http.routers.asxpio-admin.middlewares=asxpio-admin-private"
+      - "traefik.http.middlewares.asxpio-admin-private.ipallowlist.sourcerange=10.10.0.0/20,10.20.0.0/24"
 
   # Reachability worker for datacenterbingo's status page (bin/monitor).
   # Same image; the deploy's sed sets both image lines.

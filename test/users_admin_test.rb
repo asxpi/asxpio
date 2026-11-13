@@ -124,6 +124,24 @@ class UsersAdminTest < Minitest::Test
     assert last_response.ok?, "#{url.inspect} -> #{last_response.status} #{last_response.body[0, 200]}"
   end
 
+  def test_superuser_reset_only_on_superuser_host
+    User.create(username: 'root', email: 'root@example.com', superuser: true, password: 'root-password-1')
+    old = ENV['SUPERUSER_HOST']
+    ENV['SUPERUSER_HOST'] = 'admin.example.org'
+    get '/admin/reset'
+    tok = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post '/admin/reset', { authenticity_token: tok, login: 'root' }
+    assert last_response.ok?
+    assert_empty Mail::TestMailer.deliveries
+    get 'http://admin.example.org/admin/reset'
+    tok = last_response.body[/name="authenticity_token" value="([^"]+)"/, 1]
+    post 'http://admin.example.org/admin/reset', { authenticity_token: tok, login: 'root' }
+    assert_equal 1, Mail::TestMailer.deliveries.size
+    assert_match %r{http://admin\.example\.org/admin/reset/}, Mail::TestMailer.deliveries.last.body.to_s
+  ensure
+    ENV['SUPERUSER_HOST'] = old
+  end
+
   def test_no_escalation_by_user_manager
     boss = User.create(username: 'manager', password: 'manager-pass-1')
     UserPermission.create(user_id: boss.id, area: 'users', can_read: true, can_write: true)

@@ -62,7 +62,7 @@ class AsxpioWeb < Sinatra::Base
     # 127.0.0.1 is the Docker HEALTHCHECK. Empty list (= check disabled)
     # outside production so dev and rack-test hosts keep working.
     set :host_authorization,
-        { permitted_hosts: $env == 'production' ? ['asxp.io', 'www.asxp.io', '127.0.0.1'] : [] }
+        { permitted_hosts: $env == 'production' ? ['asxp.io', 'www.asxp.io', 'admin.asxp.io', '127.0.0.1'] : [] }
   end
 
   use Rack::Session::Cookie,

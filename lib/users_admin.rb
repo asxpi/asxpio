@@ -37,7 +37,7 @@ module UsersAdmin
     # account without email (or a failed send) can still be onboarded.
     def send_account_link(user, kind)
       raw = UserToken.issue!(user, kind)
-      url = "#{request.base_url}/admin/#{kind}/#{raw}"
+      url = "#{account_link_base(user)}/admin/#{kind}/#{raw}"
       sent = false
       if user.email
         begin
@@ -229,8 +229,9 @@ module UsersAdmin
       if AdminAuth.login_limit.allow?(client_ip)
         q = params[:login].to_s.strip.downcase
         user = User.where(active: true).where(Sequel.|({ username: q }, { email: q })).first
-        if user&.email && user.password_digest
-          url = "#{request.base_url}/admin/reset/#{UserToken.issue!(user, 'reset')}"
+        # A superuser resets on SUPERUSER_HOST only; elsewhere: same silence.
+        if user&.email && user.password_digest && superuser_allowed?(user)
+          url = "#{account_link_base(user)}/admin/reset/#{UserToken.issue!(user, 'reset')}"
           begin
             Mailer.account_link(to: user.email, username: user.username, url: url, kind: 'reset')
           rescue StandardError => e

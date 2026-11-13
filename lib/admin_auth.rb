@@ -27,7 +27,27 @@ module AdminAuth
       return @current_user if defined?(@current_user)
       uid = session[:uid]
       user = uid && User[uid]
-      @current_user = user if user&.active && user.session_version == session[:uv]
+      @current_user = user if user&.active && user.session_version == session[:uv] && superuser_allowed?(user)
+    end
+
+    # SUPERUSER_HOST (admin.asxp.io, reachable over WireGuard/VPC only):
+    # superusers authenticate there and nowhere else. Elsewhere their
+    # login fails like a wrong password and their session counts as none.
+    # Unset = no restriction (dev, tests). HTTP_HOST, not request.host:
+    # the latter would believe a client-sent X-Forwarded-Host.
+    def superuser_host?
+      want = ENV['SUPERUSER_HOST'].to_s.strip.downcase
+      want.empty? || request.env['HTTP_HOST'].to_s.downcase.sub(/:\d+\z/, '') == want
+    end
+
+    def superuser_allowed?(user)
+      !user&.superuser || superuser_host?
+    end
+
+    # Account links for non-superusers must work off the WireGuard host.
+    def account_link_base(user)
+      site = ENV['SITE_URL'].to_s
+      user.superuser || site.empty? ? request.base_url : site
     end
 
     # For views: show a form/button only if the user may use it.
@@ -102,7 +122,8 @@ module AdminAuth
         return erb :'admin/login'
       end
       user = User.authenticate(params[:username], params[:password])
-      if !user && !User.active_superuser? && env_credentials?(params[:username], params[:password])
+      user = nil unless superuser_allowed?(user)
+      if !user && superuser_host? && !User.active_superuser? && env_credentials?(params[:username], params[:password])
         # Recovery: no usable superuser left, so the env credentials restore one.
         name = ENV['ADMIN_USER'].strip.downcase
         user = User[username: name] || User.new(username: name)

@@ -153,6 +153,8 @@ jobs:
             MAIL_TO=ie@asxp.io
             ADMIN_USER=${ADMIN_USER}
             ADMIN_PASSWORD=${ADMIN_PASSWORD}
+            SUPERUSER_HOST=admin.asxp.io
+            SITE_URL=https://asxp.io
             DATABASE_URL=postgres://asxpio:${ASXPIO_DB_PASSWORD}@postgres:5432/asxpio
             S3_ENDPOINT=http://garage:3900
             S3_PUBLIC_ENDPOINT=https://s3.asxp.io
