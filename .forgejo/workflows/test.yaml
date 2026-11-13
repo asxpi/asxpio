@@ -26,7 +26,7 @@ jobs:
       # container.network must stay "" — with "host" the service network is
       # never created and services fail to start).
       postgres:
-        image: postgres:17.12-alpine
+        image: postgres:18.7-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
