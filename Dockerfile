@@ -31,4 +31,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ruby -rnet/http -e 'port = ENV.fetch("PUMA_PORT", "3000"); exit(Net::HTTP.get_response(URI("http://127.0.0.1:#{port}/healthz")).code == "200" ? 0 : 1)'
 
-CMD ["sh", "-c", "exec puma -b tcp://0.0.0.0:${PUMA_PORT} -t ${PUMA_THREADS} --preload"]
+CMD ["sh", "-c", "exec bundle exec puma -b tcp://0.0.0.0:${PUMA_PORT} -t ${PUMA_THREADS} --preload"]
