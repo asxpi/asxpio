@@ -13,7 +13,7 @@ The site depends on the **storage stack** in the sibling `~/Code/projects/asxpio
 ## Hard rules
 
 - **Never use the words "consulting" or "advisory"** anywhere on the site or in invoicing copy. Frame work as "services", "engineering", "implementation". This is for tax-classification reasons; ask the user before deviating.
-- **Never commit `.env`** or any real credential. Production secrets come from Forgejo secrets at deploy time.
+- **Never commit `.env`** or any real credential. Production settings and secrets live in iac (sops, below).
 
 ## Entity facts (also visible on the rendered page)
 
@@ -43,22 +43,20 @@ Banking details and registration number are deliberately not on the public page 
 - Timestamps: `Sequel.default_timezone = :utc` (lib/db.rb); always write `Time.now.utc`.
 - Honeypot field named `website` for spam
 - Static assets in `public/`; views in `views/`
-- Deploy: `Dockerfile` + `docker-compose.yml` (Traefik labels for asxp.io / www.asxp.io). Container joins two external Docker networks: `traefik` (ingress) and `storage` (Postgres + Garage).
+- Deploy: `flake.nix` builds the app (`nix/package.nix`) and runs it (`nix/module.nix`, `services.asxpio`); see Production below.
 - Dev shell: `flake.nix` (Ruby 3.4, bundler, openssl, zlib, libyaml, postgresql). Run `nix develop`.
 
 The patterns mirror `~/Code/projects/narayana/www`. Use that repo as a reference for conventions (middleware, helpers, dotenv pattern) — but don't pull in narayana-specific things this site doesn't need (no Redis, no i18n, no API client).
 
-## Storage stack dependency
+## Storage dependency
 
-Postgres and Garage are owned by `~/Code/projects/asxpio/storage` (separate Forgejo repo, separate deploy pipeline). asxpio talks to:
+Postgres and Garage are native services on asxpio-ops (iac, `nixos/hosts/asxpio-ops/{postgres,garage}.nix`). The app runs on asxpio-services and talks to:
 
-- `postgres:5432` over the `storage` Docker network — for the `invoices` table.
-- `garage:3900` over the `storage` Docker network — for putting PDF bytes.
+- `10.10.0.10:5432` (Postgres, private network) — the `asxpio` database.
+- `10.10.0.10:3900` (Garage S3, private network) — PDFs, bingo photos, public files.
 - `https://s3.asxp.io` over Traefik — used **only** for presigned URLs, so the browser can dereference them. Same Garage, different hostname.
 
-If the storage stack is down, the asxpio container will fail to boot (Sequel connects at process start). The contact form goes down with the invoicing UI in that case. Accepted trade-off; the alternative was a much more elaborate "degrade gracefully when DB is gone" path that wasn't worth the code.
-
-The `asxpio` Postgres role + `asxpio-invoices` bucket + scoped S3 key are provisioned by the storage repo's init steps (`init/postgres-init.sh`, `init/garage-bootstrap.sh`). Changing those requires editing storage, not this repo.
+If Postgres is down, the app fails to boot (Sequel connects at process start) and systemd retries every 5 s until it is back. The contact form goes down with the invoicing UI in that case. Accepted trade-off; the alternative was a much more elaborate "degrade gracefully when DB is gone" path that wasn't worth the code.
 
 ## Page structure
 
@@ -70,11 +68,11 @@ The public site is multi-page: `/` (hero + intro links + services grid), `/keys`
 
 Removed 2026-08-04 after persistent spam: ~12 submissions/48h reaching the inbox, overwhelmingly from `80.94.95.173` (with neighbours in `80.94.95.0/24` and `141.98.11.0/24`). The traffic was scripted, not browser-driven — `HTTP/1.0` requests with a User-Agent randomised per request across Chrome 129/130/131 + Avast/CCleaner/Edg variants. The in-app rate limiter was absorbing ~75% of attempts but the remainder still landed. Options weighed and rejected: proof-of-work captcha (would have worked against these no-JS scripts, but not worth the code for a form whose only output is an email), Cloudflare Turnstile (external dependency, conflicts with the self-hosted posture), Traefik IP ban (v3 has no built-in deny-list — only `IPAllowList`; would need a third-party plugin or an all-except-CIDR allow-list with an IPv6 footgun).
 
-**Still present but now unused by the public site:** `lib/mailer.rb`, `lib/rate_limit.rb`, and the `SMTP_*` / `MAIL_*` env vars. Left in place deliberately so the form can be restored, and because `Mailer.configure!` still runs at boot. If the form is never coming back, these and their Forgejo secrets can be retired.
+**Still present but now unused by the public site:** `lib/mailer.rb`, `lib/rate_limit.rb`, and the `SMTP_*` / `MAIL_*` env vars. Left in place deliberately so the form can be restored, and because `Mailer.configure!` still runs at boot. If the form is never coming back, these and their entries in the environment file in iac can be retired.
 
 `MAIL_FROM` must use a Fastmail-verified send-as address (currently `me@asxp.io`).
 
-If a form is ever reinstated, note that Traefik's access log (`/opt/traefik/logs/access.log`, User-Agent retained) is the only place with client IPs — the app itself logs no requests.
+If a form is ever reinstated, note that Traefik's access log (`/var/log/traefik/access.log` on asxpio-ops, User-Agent retained) is the only place with client IPs — the app itself logs no requests.
 
 ## Invoicing
 
@@ -96,7 +94,7 @@ Public:
 
 - `GET /i/:uuid` — landing page: client name, number, total, status badge, download button.
 - `GET /i/:uuid/pdf` — 302 to a 5-minute presigned URL (Content-Disposition: attachment).
-- `GET /healthz` — liveness (plus `SELECT 1` when invoicing is configured); used by the Docker HEALTHCHECK and the deploy pipeline's post-deploy wait.
+- `GET /healthz` — liveness (plus `SELECT 1` when invoicing is configured); used for checks; systemd learns readiness from Puma itself (`Type=notify`).
 
 ### Storage model
 
@@ -118,16 +116,16 @@ Admin pages use a shared dark palette extended in `public/style.css` (search for
 
 ### Caveats
 
-- The `INV-{YYYY}-{NNNN}` allocator is `SELECT MAX(...) + 1` over the numeric suffix. Concurrent creates (Puma threads) that collide on the unique constraint are retried — the whole build→render→upload→save sequence, since the PDF embeds the number; a losing attempt orphans its two S3 objects. If we ever add a second container, switch to a DB-side sequence per year.
+- The `INV-{YYYY}-{NNNN}` allocator is `SELECT MAX(...) + 1` over the numeric suffix. Concurrent creates (Puma threads) that collide on the unique constraint are retried — the whole build→render→upload→save sequence, since the PDF embeds the number; a losing attempt orphans its two S3 objects. If we ever run a second instance, switch to a DB-side sequence per year.
 - Anyone with the UUID can fetch the PDF. UUIDs are 122-bit random so not enumerable, but they aren't access-controlled. If a stronger gate is ever needed (email confirmation, expiry on paid, etc.) it goes in the `/i/:uuid` and `/i/:uuid/pdf` handlers.
 - The bucket is **private**; only the app's scoped key can put/get. Presigned URLs use `S3_PUBLIC_ENDPOINT=https://s3.asxp.io` so the signed host matches what the browser fetches.
 
 ## Datacenter bingo (admin side)
 
-The public site (datacenterbingo.xyz) lives in its own repo and container: `git.czsk.it/asxpi/datacenterbingo`, mirrored to GitHub. It reads the tables and photos below through a read-only DB role (`bingo`) and S3 key. What stays here is the admin, which writes, and the schema.
+The public site (datacenterbingo.xyz) lives in its own repo: `git.czsk.it/asxpi/datacenterbingo`, mirrored to GitHub. It reads the tables and photos below through a read-only DB role (`bingo`) and S3 key. What stays here is the admin, which writes, and the schema.
 
 - **Schema is owned here.** After adding a bingo migration, refresh `test/schema.sql` in datacenterbingo and update its models. Keep `Bingo::PROVIDERS`, `Board` and the model methods in step with its `lib/bingo.rb`. UI strings (`T`) and views are only there.
-- `BINGO_HOST` (deploy.yaml → `.env`) is used only for the IndexNow host and the admin's "view site" link; Traefik no longer routes it here.
+- `BINGO_HOST` (the environment file in iac) is used only for the IndexNow host and the admin's "view site" link; Traefik no longer routes it here.
 - Tables `bingo_datacenters`, `bingo_incidents` (`db/migrations/004_bingo.rb`…). `updated_at` is set on save; `renumber!` bumps only moved rows, and deleting an incident bumps its datacenter (use `destroy`, not dataset `delete`, so the hook runs). First boot seeds from `db/bingo_seed.json` only if the table is empty; after that, edit via the admin.
 - Admin: `/admin/bingo` (`lib/bingo_admin.rb`). Record and delete incidents; add, edit and delete DCs (delete cascades); upload a photo or import it from a URL; bulk import or re-import photos from `photo_source_url`; "Sort by MW".
 - Status: operational | building | planned. `mw_type` (it | connected | total | design | mva, NULL = not stated) tags the MW figure; mva swaps the unit. The public default card is operational only, and so is the dashboard tile (`Board.load('operational')`).
@@ -140,14 +138,14 @@ The public site (datacenterbingo.xyz) lives in its own repo and container: `git.
   - Served publicly by the bingo site at `/p/:file`; previewed here at `/admin/bingo/p/:file`.
 - IndexNow (`Bingo::IndexNow`): admin actions ping api.indexnow.org with the changed URLs. The key comes from `INDEXNOW` → `INDEXNOW_KEY`; the bingo site has the same key and serves `/<key>.txt`. Unset = no-op.
 - Photos are third-party (operator sites, Habr, Wikimedia Commons CC BY-SA) — keep `photo_credit` filled; renders/illustrations are marked as such.
-- Monitor (`lib/bingo_monitor.rb`, `bin/monitor`, migration 017): the `asxpio-monitor` container (same image, compose healthcheck on a heartbeat file) opens one TCP connection per minute to each active `bingo_monitor_targets` row; a handshake or a refusal counts as answered. Results fold into 5-minute `bingo_monitor_samples` per datacenter (upserts) and `bingo_monitor_buckets` (rounds + control hosts, i.e. targets with `datacenter_id` NULL); kept 30 days. Targets are managed at `/admin/bingo/monitor` (bulk lines `slug host[:port] source_url label`, slug `_control` for controls). Only add hosts a public source ties to that one site. The public status page in datacenterbingo reads these tables; migration 017 grants them to the `bingo` role.
+- Monitor (`lib/bingo_monitor.rb`, `bin/monitor`, migration 017): the `asxpio-monitor` systemd service (same package, `bin/asxpio-monitor`; touches `MONITOR_HEARTBEAT` after every round) opens one TCP connection per minute to each active `bingo_monitor_targets` row; a handshake or a refusal counts as answered. Results fold into 5-minute `bingo_monitor_samples` per datacenter (upserts) and `bingo_monitor_buckets` (rounds + control hosts, i.e. targets with `datacenter_id` NULL); kept 30 days. Targets are managed at `/admin/bingo/monitor` (bulk lines `slug host[:port] source_url label`, slug `_control` for controls). Only add hosts a public source ties to that one site. The public status page in datacenterbingo reads these tables; migration 017 grants them to the `bingo` role.
 - No street addresses or coordinates on the page — city level only.
 
 ## Public files (`/admin/files`)
 
 Files published for anyone to fetch: `lib/files_admin.rb`, `lib/public_file.rb`, migration 018, ACL area `files`.
 
-- Objects go to `PUBLIC_S3_BUCKET` (`public`, a Garage website made by the storage repo; unset = `S3_BUCKET`) and are read at `PUBLIC_BASE_URL/<key>` (`https://s3.asxp.io/public/…`), not through this app. Both are set in `deploy.yaml`.
+- Objects go to `PUBLIC_S3_BUCKET` (`public`, a Garage website made by the storage repo; unset = `S3_BUCKET`) and are read at `PUBLIC_BASE_URL/<key>` (`https://s3.asxp.io/public/…`), not through this app. Both are set in the environment file in iac.
 - The app's key is write-only there (put, delete; no read, no list), so `public_files` is the only record of the objects. Objects uploaded some other way don't show up.
 - Key: `<8 hex>/<sanitised ASCII filename>`, fixed for the life of the file. "Replace" re-uploads under the same key and must keep the extension.
 - The extension decides how the object is served. `PublicFile::INLINE` types (images, PDF, plain text, audio, video) get their content type and `inline`; everything else, HTML and SVG included, is `application/octet-stream` with `Content-Disposition: attachment`. `s3.asxp.io` is same-site with the admin, so don't add a type that can run script.
@@ -157,7 +155,7 @@ Files published for anyone to fetch: `lib/files_admin.rb`, `lib/public_file.rb`,
 ## Operational notes
 
 - `client_ip` reads `X-Forwarded-For` first (Traefik sets it), falling back to `X-Real-IP` and `REMOTE_ADDR`.
-- The rate limiter resets on app restart — acceptable for one-process deploys.
+- The rate limiter resets on app restart — acceptable for one process.
 - If the Ruby process is down, the site is down. There's no static fallback. (Trade-off accepted for the contact form.)
 
 ## SSH key comment caveat
@@ -182,56 +180,33 @@ All colors in `public/style.css` are CSS custom properties on `:root` (design to
 
 ## Common tasks
 
-- **Generate a new SESSION_SECRET:** `openssl rand -hex 64` (then update Forgejo secret).
-- **Generate a new ADMIN_PASSWORD:** `openssl rand -base64 24`. **Save it to a password manager** — Forgejo secrets are write-only.
 - **Local dev:** `nix develop`, then `bundle exec rerun -- rackup -p 3000`. Visit `http://localhost:3000`. Without `DATABASE_URL` the contact form still works; invoicing routes return 503.
 - **Run tests:** `nix develop -c bin/test` — full suite (minitest + rack-test) against an ephemeral Postgres it provisions and tears down itself. `bundle exec rake test` runs without a DB, skipping DB-backed tests. Mail uses `Mail::TestMailer`; S3 uses aws-sdk stubbed responses; tests never touch real services, and `.env` is deliberately not loaded when `RACK_ENV=test`.
-- **Local image build (sanity check):** `docker compose build`
-- **Production deploy:** automatic via `.forgejo/workflows/deploy.yaml` on push to `main`. Pipeline:
-  0. Test suite runs on the `nix-latest` runner label (postgres service container); a red suite blocks the build. Non-main branches get the same job from `test.yaml`.
-  1. Kaniko builds the image and pushes it to the Forgejo registry.
-  2. SSH copies `docker-compose.yml` to the deploy directory on the prod host.
-  3. SSH writes `.env` (mode 600) from Forgejo secrets. The full set of invoicing envs (`DATABASE_URL`, `S3_*`, `ADMIN_*`) is built here; the per-app `ASXPIO_DB_PASSWORD` / `ASXPIO_S3_*` values must match the storage repo's Forgejo secrets, since storage's init steps provision the corresponding role + S3 key. Garage only takes keys in its own format, so the deploy hashes `ASXPIO_S3_*` into it exactly as `storage/init/garage-bootstrap.sh` does (`garage_key_id`, `garage_secret`); a pair already in Garage's format is used as is.
-  4. SSH `sed`-substitutes the image tag in `docker-compose.yml`, runs `docker compose up -d`, and waits (up to 90s) for the image `HEALTHCHECK` (`GET /healthz`) to report healthy — a crash-looping container fails the deploy.
+- **Package (what the servers run):** `nix build`. After changing `Gemfile.lock`, `nix run nixpkgs#bundix` refreshes `gemset.nix`; CI (`bin/check-gemset`) fails until they match.
+
+## Production
+
+`flake.nix` exports the app (`packages.default`: bundlerEnv from `Gemfile.lock` and `gemset.nix`; `bin/asxpio` is Puma serving `config.ru`, `bin/asxpio-monitor` the worker; photos are resized with ImageMagick 7's `magick`) and a module (`services.asxpio`: both as hardened systemd services with a dynamic user). asxpio-services runs them; Traefik on asxpio-ops routes asxp.io, www and admin.asxp.io (WireGuard + VPC only) to port 3001.
+
+A push to `main` is picked up by Renovate in asxpi/iac (flake input `asxpio`) within about 15 minutes and deployed by comin. CI here (`.forgejo/workflows/ci.yaml`) only tests: the suite on a Postgres service container, `bin/check-gemset`, the package build. Migrations run at boot, as before.
 
 ## Where the secrets live
 
-| Forgejo secret           | Use                                                                      | Rotate by                                                                                       |
-|--------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| `SESSION_SECRET`         | Rack session cookie HMAC                                                 | Update secret + push. All sessions invalidated; no user impact since nobody is logged in.        |
-| `SMTP_PASSWORD`          | Fastmail app password                                                    | New Fastmail app password → update secret → push.                                                |
-| `ADMIN_USER`             | HTTP Basic username for `/admin/*`                                       | Change secret + push.                                                                            |
-| `ADMIN_PASSWORD`         | HTTP Basic password for `/admin/*`                                       | Generate fresh, update secret + push. **Forgejo doesn't show old values.** Save to password manager. |
-| `ASXPIO_DB_PASSWORD`     | Password for the `asxpio` Postgres role                                  | Update on **both** repos to the same value. Push storage first (re-provisions role), then asxpio. |
-| `ASXPIO_S3_ACCESS_KEY`   | S3 key id (Garage), read-write on `asxpio-invoices` and the bingo photos, write-only on `public` | Same dual-repo update. Push storage first.                                                       |
-| `ASXPIO_S3_SECRET_KEY`   | Matching S3 secret                                                       | Same.                                                                                            |
-| `CRYPTO_ADDRESSES`       | **Seed only.** Imported into `payout_addresses` on the first boot with an empty table; afterwards edited in `/admin/invoices/payout-addresses`. | Delete the secret (and its line in deploy.yaml) once the admin page shows the imported addresses. |
-| `INDEXNOW`               | IndexNow key for the bingo (→ `INDEXNOW_KEY`, served at `/<key>.txt`) | New random key (8–128 chars `A-Za-z0-9-`) → update secret → push. The old key file stops being served. |
-| `LTC_ADDRESS`            | Legacy, seed only (fills LTC on that first import).                      | Delete together with `CRYPTO_ADDRESSES`.                                                         |
-| `DEPLOY_IP/USER/SSH_KEY` | SSH to prod from CI                                                      | Standard SSH key rotation.                                                                       |
-| `FORGEJO_REGISTRY/USER`, `FJ_TOKEN` | Kaniko registry auth. Token needs `write:package` + `read:repository`; named `FJ_` because Forgejo forbids new secrets prefixed `FORGEJO_` | Forgejo token rotation.                                                                          |
+All production settings and secrets are one environment file in iac's sops (`nixos/secrets/asxpio-services.yaml`, key `asxpio/env`; edit with `sops` from iac's `nixos/`). The app's Postgres role password and Garage key are also provisioned on asxpio-ops from `nixos/secrets/asxpio-ops.yaml` (`postgres/asxpio_password`, `garage/asxpio_*`); a rotation changes both files in one commit. The `DATABASE_URL` and `S3_*` values here are in Garage's key format already.
 
-**Non-secret config that lives in the workflow** (not in `.env.example`, not in secrets): `SMTP_ADDR`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`, `MAIL_TO`, `DATABASE_URL` host portion, `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`, `S3_BUCKET`. Change these by editing `.forgejo/workflows/deploy.yaml`.
+- `SESSION_SECRET`: `openssl rand -hex 64`. Changing it logs everyone out.
+- `ADMIN_USER` / `ADMIN_PASSWORD`: the env recovery login. Save new values to the password manager.
+- `CRYPTO_ADDRESSES`, `LTC_ADDRESS`: **seed only**, imported into `payout_addresses` on the first boot with an empty table; drop them once the admin page shows the addresses.
+- `INDEXNOW_KEY`: shared with datacenterbingo, which serves it (its own env file in iac).
 
 ### Password character caveat (learned the hard way)
 
-`DATABASE_URL` is a URL, so `ASXPIO_DB_PASSWORD` **must not contain** `/`, `@`, `:`, `?`, `#`, `&`, `%`, `+`, `=`, or whitespace. If a rotation produces a password with those characters, Sequel will refuse to parse the URL and the container won't boot. Generate URL-safe passwords with:
+`DATABASE_URL` is a URL, so the `asxpio` role's password **must not contain** `/`, `@`, `:`, `?`, `#`, `&`, `%`, `+`, `=`, or whitespace. If a rotation produces a password with those characters, Sequel will refuse to parse the URL and the app won't boot. Generate URL-safe passwords with:
 
 ```
 LC_ALL=C tr -dc 'A-Za-z0-9._-' </dev/urandom | head -c 40; echo
 ```
 
-### Recovering forgotten secrets
-
-If you forget the value of a write-only Forgejo secret, the live `.env` on prod still has it:
-
-```
-ssh deploy@<prod-host> 'sudo cat /opt/asxpio/.env'      # ADMIN_*, DATABASE_URL, S3_*
-ssh deploy@<prod-host> 'sudo cat /opt/storage/.env'     # ASXPIO_DB_PASSWORD etc. (same value, storage side)
-```
-
-Re-saving the secret in Forgejo to match a fresh value requires updating both repos and redeploying storage first.
-
 ## What `.env.example` is for
 
-Local development only. Copy to `.env`, fill in dummy/test SMTP creds (or real ones if you want to actually send) and a throwaway `SESSION_SECRET`. The Nix dev shell sources `.env` automatically. **Production never reads `.env.example` and never has a stale `.env`** — every deploy regenerates it.
+Local development only. Copy to `.env`, fill in dummy/test SMTP creds (or real ones if you want to actually send) and a throwaway `SESSION_SECRET`. The Nix dev shell sources `.env` automatically. **Production never reads `.env.example` or a `.env`**: its environment file comes from iac.

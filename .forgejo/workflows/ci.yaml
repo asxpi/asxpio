@@ -1,11 +1,10 @@
-name: Tests
+name: CI
 
-# main is covered by the test job inside deploy.yaml (which gates the build);
-# this workflow covers every other branch.
+# Every push: tests, gemset.nix in step with Gemfile.lock, and the package
+# the servers run. Deploying is not this repository's job: Renovate in
+# asxpi/iac picks up each push to main and the servers pull it (comin).
 on:
   push:
-    branches-ignore:
-      - main
 
 jobs:
   test:
