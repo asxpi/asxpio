@@ -5,6 +5,14 @@ services:
     build: .
     image: asxpio:latest
     container_name: asxpio
+    # Same as the image HEALTHCHECK. Podman ignores HEALTHCHECK in OCI-format
+    # images (what kaniko pushes), and the deploy waits for "healthy".
+    healthcheck:
+      test: ["CMD-SHELL","ruby -rnet/http -e 'port = ENV.fetch(\"PUMA_PORT\", \"3000\"); exit(Net::HTTP.get_response(URI(\"http://127.0.0.1:#{port}/healthz\")).code == \"200\" ? 0 : 1)'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     restart: unless-stopped
     env_file: .env
     networks:
