@@ -5,12 +5,22 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
+      packages.${system}.default = pkgs.callPackage ./nix/package.nix {
+        version = self.shortRev or self.dirtyShortRev or "dev";
+      };
+
+      # services.asxpio (nix/module.nix)
+      nixosModules.default = import ./nix/module.nix self;
+
+      checks.${system}.package = self.packages.${system}.default;
+
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [
           pkgs.ruby_4_0

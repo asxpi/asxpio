@@ -61,3 +61,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://postgres@postgres:5432/asxpio_test
         run: nix develop -c bundle exec rake test
+
+      # What the servers run: gemset.nix in step with Gemfile.lock, and
+      # the package builds
+      - name: Package
+        run: |
+          nix develop -c ruby bin/check-gemset
+          nix build .#default

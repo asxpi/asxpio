@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+# gemset.nix (what Nix builds) must name the same gem versions as
+# Gemfile.lock. After a Gemfile.lock change: nix run nixpkgs#bundix
+lock = {}
+File.read('Gemfile.lock').scan(/^    ([a-zA-Z0-9_.-]+) \(([^)]+)\)$/) do |name, ver|
+  lock[name] = ver.sub(/-(x86|aarch64|arm|arm64)[a-z0-9_-]*\z/, '')
+end
+gemset = {}
+File.read('gemset.nix').scan(/^  "?([a-zA-Z0-9_.-]+)"? = \{.*?^    version = "([^"]+)";/m) do |name, ver|
+  gemset[name] = ver
+end
+bad = gemset.reject { |n, v| lock[n] == v }.map { |n, v| "#{n}: gemset #{v}, lock #{lock[n] || 'missing'}" }
+bad += (lock.keys - gemset.keys).map { |n| "#{n}: in Gemfile.lock, missing from gemset.nix" }
+if bad.empty?
+  puts "gemset.nix matches Gemfile.lock (#{gemset.size} gems)"
+else
+  puts bad, '', 'Run: nix run nixpkgs#bundix'
+  exit 1
+end
